@@ -1,4 +1,4 @@
-# irods-mock
+# boxy
 
 This is a library intended to back the clj-jargon with a configurable mock up of
 an iRODS repository for unit testing purposes.
