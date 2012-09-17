@@ -27,4 +27,4 @@ If the client would rather use something other than a content map to model an
 iRODS repository, the MockProxy constructor may be used directly, passing in
 constructors for the custom components.
 
-* The structure of the content map has not been defined yet.
+\* The structure of the content map has not been defined yet.
