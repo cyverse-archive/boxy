@@ -1,8 +1,12 @@
 (ns boxy.core
   "This namespace provides an implementation of the Jargon classes for 
-   interacting with a mock up of an iRODS repository."
-  (:require [boxy.jargon-if :as ji])
-  (:import [org.irods.jargon.core.pub CollectionAO
+   interacting with a mock up of an iRODS repository.  The function 
+   mk-mock-proxy should normally be the entry point."
+  (:require [boxy.jargon-if :as j]
+            [boxy.repo :as r])
+  (:import [java.util List]
+           [org.irods.jargon.core.protovalues FilePermissionEnum]
+           [org.irods.jargon.core.pub CollectionAO
                                       CollectionAndDataObjectListAndSearchAO
                                       DataObjectAO
                                       IRODSAccessObjectFactory
@@ -10,90 +14,246 @@
                                       QuotaAO
                                       UserAO
                                       UserGroupAO]
-           [org.irods.jargon.core.pub.io IRODSFileFactory]))
+           [org.irods.jargon.core.pub.domain UserGroup]
+           [org.irods.jargon.core.pub.io FileIOOperations
+                                         IRODSFile
+                                         IRODSFileFactory
+                                         IRODSFileOutputStream]
+           [org.irods.jargon.core.query MetaDataAndDomainData
+                                        MetaDataAndDomainData$MetadataDomain]))
 
 
-;TODO define the content map
-
-
-(defrecord MockFileFactory [content-ref account]
-  ^{:doc 
-    "This is an iRODS file factory that is backed by a mutable content map.
-
-     Parameters:
-       content-ref - An atom containing the content.
-       account - The IRODSAccount identifying the connected user."}
-  IRODSFileFactory)
-
-
-(defrecord MockFileSystemAO [content-ref account]
+(defrecord MockFile [repo-ref account path]
   ^{:doc
-    "This is an iRODS file system accesser that is backed by a mutable content 
-     map.
+    "This is description of a file or directory in a mutable boxy repository.
 
      Parameters:
-       content-ref - An atom containing the content.
+       repo-ref - An atom containing the repository content.
+       account - The IRODSAccount identifying the connected user.
+       path - The path to file or directory.
+
+     NOTE:  This has been implemented only enough to support current testing."}
+  IRODSFile
+  
+  (close [_])
+  
+  (delete [_]
+    "TODO: implement this method"
+    false)
+  
+  (createNewFile [_]
+    (if (r/contains-entry? @repo-ref path)
+      false
+      (do
+        (reset! repo-ref (r/add-file @repo-ref path))
+        true)))
+  
+  (exists [_]
+    (r/contains-entry? @repo-ref path))
+  
+  (getAbsolutePath [_]
+    path)
+  
+  (getFileDescriptor [_]
+    3)
+  
+  (isDirectory [_]
+    (r/is-dir? @repo-ref path))
+  
+  (isFile [_]
+    (r/is-file? @repo-ref path))
+  
+  (mkdirs [_]
+    "TODO: implement this method"
+    false)
+  
+  (reset [_]
+    #_"TODO implement this method"))
+
+
+(defrecord MockFileIOOperations [repo-ref account file]
+  ^{:doc
+    "An implementation of file I/O operations for a given file in a mutable 
+     boxy repository.
+
+     Parameters:
+       repo-ref - An atom containing the repository content.
+       account - The IRODSAccount identifying the connected user.
+       file - The IRODSFile describing the file of interest..
+
+     NOTE:  This assumes that the String is an 8 bit character set.
+     NOTE:  This has been implemented only enough to support current testing."}
+  FileIOOperations
+  
+  (write [_ fd buffer offset length]
+    ^{:doc "This assures that buffer is a character array with 8 bit characters."}
+    (let [path        (.getAbsolutePath file)
+          add-content (String. buffer offset length)]
+      (reset! repo-ref (r/write-to-file @repo-ref path add-content offset))
+      length)))
+
+
+(defrecord MockFileFactory [file-ctor io-ops-ctor]
+  ^{:doc
+    "This is factory for producing java.io-like objects for manipulating fake 
+     iRODS data.  It should normally be constructed by the mk-mock-file-factory 
+     function.  If custom implementations of IRODSFile or FileIOOperations are 
+     needed, they can be provided by passing the relevant constructors directly 
+     to the MockFileFactory constructor.
+
+     Parameters:
+       file-ctor - This is a function that constructs an IRODSFile for a given
+         path.  It takes an absolute path as its only argument.
+       io-ops-ctor - This is a function that constructs a FileIOOperations for a 
+         given IRODSFile object.  It takes an IRODSFile as its only argument.
+
+     NOTE:  This has been implemented only enough to support current testing."}
+  IRODSFileFactory
+
+  (^IRODSFile instanceIRODSFile [_ ^String path]
+    (file-ctor path))
+
+  (^IRODSFileOutputStream instanceIRODSFileOutputStream [_ ^IRODSFile file]
+    (proxy [IRODSFileOutputStream] [file (io-ops-ctor file)])))
+
+
+(defn mk-mock-file-factory
+  "Constructs a MockFileFactory backed by a mutable boxy repository.
+ 
+   Parameters:
+     repo-ref - An atom containing the content.
+     acnt - The IRODSAccount object representing the connected user.
+  
+   Returns:
+     It returns a MockFileFactory instance."
+  [repo-ref acnt]
+  (->MockFileFactory (partial ->MockFile repo-ref acnt)
+                     (partial ->MockFileIOOperations repo-ref acnt)))
+  
+  
+(defrecord MockFileSystemAO [repo-ref account]
+  ^{:doc
+    "This is an iRODS file system accesser that is backed by mutable repository 
+     content.
+
+     Parameters:
+       repo-ref - An atom containing the content.
        account - The IRODSAccount identifying the connected user."}
   IRODSFileSystemAO)
 
 
-(defrecord MockEntryListAO [content-ref account]
+(defrecord MockEntryListAO [repo-ref account]
   ^{:doc
     "This is an iRODS entry lister and searcher that is backed by a mutable 
-     content map.
+     repository content.
 
      Parameters:
-       content-ref - An atom containing the content.
+       repo-ref - An atom containing the content.
        account - The IRODSAccount identifying the connected user."}
   CollectionAndDataObjectListAndSearchAO)
   
 
-(defrecord MockCollectionAO [content-ref account]
+(defrecord MockCollectionAO [repo-ref account]
   ^{:doc
-    "This is a collections accesser that is backed by a mutable content map.
+    "This is a collections accesser that is backed by mutable repository content.
 
      Parameters:
-       content-ref - An atom containing the content.
+       repo-ref - An atom containing the content.
        account - The IRODSAccount identifying the connected user."}
-  CollectionAO)
+  CollectionAO
+  
+  (getPermissionForCollection [_ path user zone]
+    (condp = (r/get-permission @repo-ref path user zone)
+      :own   FilePermissionEnum/OWN
+      :read  FilePermissionEnum/READ
+      :write FilePermissionEnum/WRITE
+      nil    FilePermissionEnum/NONE)))
 
 
-(defrecord MockDataObjectAO [content-ref account]
+(defrecord MockDataObjectAO [repo-ref account]
   ^{:doc
-    "This is a data objects accesser that is backed by a mutable content map.
+    "This is a data objects accesser that is backed by mutable repository 
+     content.
 
      Parameters:
-       content-ref - An atom containing the content.
-       account - The IRODSAccount identifying the connected user."}
-  DataObjectAO)
-
-
-(defrecord MockGroupAO [content-ref account]
-  ^{:doc
-    "This is a groups accesser that is backed by a mutable content map.
-
-     Parameters:
-       content-ref - An atom containing the content.
-       account - The IRODSAccount identifying the connected user."}  
-  UserGroupAO)
+       repo-ref - An atom containing the content.
+       account - The IRODSAccount identifying the connected user.
+    
+     NOTE:  This has been implemented only enough to support current testing."}
+  DataObjectAO
+  
+  (addAVUMetadata [_ path avu]
+    (reset! repo-ref 
+            (r/add-avu @repo-ref 
+                     path 
+                     (.getAttribute avu) 
+                     (.getValue avu) 
+                     (.getUnit avu))))
+    
+  (^List findMetadataValuesForDataObject [_ ^String path]
+    "NOTE:  I don't know what a domain object Id or unique name are, so I'm 
+            using the path for both."
+    "FIXME:  This doesn't check to see if the path points to a collection."
+    (map #(MetaDataAndDomainData/instance 
+            MetaDataAndDomainData$MetadataDomain/DATA
+            path
+            path
+            (first %)
+            (second %)
+            (last %))
+         (r/get-avus @repo-ref path)))
+  
+  (getPermissionForDataObject [_ path user zone]
+    #_"TODO:  implement")
+  
+  (setAccessPermissionOwn [_ zone path user])
+    #_"TODO: implement")
 
   
-(defrecord MockUserAO [content-ref account]
+(defrecord MockGroupAO [repo-ref account]
   ^{:doc
-    "This is a users accesser that is backed by a mutable content map.
+    "This is a groups accesser that is backed by mutable repository content.
 
      Parameters:
-       content-ref - An atom containing the content.
-       account - The IRODSAccount identifying the connected user."}  
-  UserAO)
+       repo-ref - An atom containing the content.
+       account - The IRODSAccount identifying the connected user.
 
+     NOTE:  This has been implemented only enough to support current testing."}  
+  UserGroupAO
+  
+  (findUserGroupsForUser [_ user]
+    "NOTE:  I don't know what a group Id is, so I'm setting it to name:zone."
+    (let [mk-UserGroup (fn [group]
+                         (let [name (first group)
+                               zone (second group)]
+                           (doto (UserGroup.)
+                             (.setUserGroupId (str name ":" zone))
+                             (.setUserGroupName name)
+                             (.setZone zone))))]
+      (map mk-UserGroup (r/get-user-groups @repo-ref user)))))
 
-(defrecord MockQuotaAO [content-ref account]
+  
+(defrecord MockUserAO [repo-ref account]
   ^{:doc
-    "This is a quotas accesser that is backed by a mutable content map.
+    "This is a users accesser that is backed by mutable repository content.
 
      Parameters:
-       content-ref - An atom containing the content.
+       repo-ref - An atom containing the content.
+       account - The IRODSAccount identifying the connected user.
+
+     NOTE:  This has been implemented only enough to support current testing."}  
+  UserAO
+  
+  (findByName [_ name] 
+    #_"NOT IMPLEMENTED"))
+
+
+(defrecord MockQuotaAO [repo-ref account]
+  ^{:doc
+    "This is a quotas accesser that is backed by mutable repository content.
+
+     Parameters:
+       repo-ref - An atom containing the content.
        account - The IRODSAccount identifying the connected user."}
   QuotaAO)
 
@@ -134,54 +294,49 @@
        user-ctor - The constructor for UserGAO objects.  As its only argument, 
          it should accept an IRODSAccount identifying the connected user.
        quota-ctor - The constructor for QuotaAO objects.  As its only argument, 
-         it should accept an IRODSAccount identifying the connected user."}
+         it should accept an IRODSAccount identifying the connected user.
+
+     NOTE:  This has been implemented only enough to support current testing."}
   IRODSAccessObjectFactory
-  
-  (getCollectionAO
-    [_ acnt] 
+
+  (getCollectionAO [_ acnt] 
     (collection-ctor acnt))
 
-  (getCollectionAndDataObjectListAndSearchAO 
-    [_ acnt] 
+  (getCollectionAndDataObjectListAndSearchAO [_ acnt] 
     (entry-list-ctor acnt))
-   
-  (getDataObjectAO 
-    [_ acnt] 
+
+  (getDataObjectAO [_ acnt] 
     (data-obj-ctor acnt))
 
-  (getIRODSFileSystemAO 
-    [_ acnt] 
+  (getIRODSFileSystemAO [_ acnt] 
     (fs-ctor acnt))
 
-  (getQuotaAO 
-    [_ acnt]
+  (getQuotaAO [_ acnt] 
     (quota-ctor acnt))
 
-  (getUserAO 
-    [_ acnt] 
+  (getUserAO [_ acnt] 
     (user-ctor acnt))
-
-  (getUserGroupAO 
-    [_ acnt] 
+  
+  (getUserGroupAO [_ acnt] 
     (group-ctor acnt)))
 
 
 (defn mk-mock-ao-factory
   "Constructs a MockAOFactory with mutable repository content.
  
-    Parameters:
-      content-ref - An atom containing the content.
+   Parameters:
+     repo-ref - An atom containing the content.
   
-    Returns:
+   Returns:
      It returns a MockProxy instance."
-  [content-ref]
-  (->MockAOFactory (partial ->MockFileSystemAO content-ref)
-                   (partial ->MockEntryListAO content-ref)
-                   (partial ->MockCollectionAO content-ref)
-                   (partial ->MockDataObjectAO content-ref)
-                   (partial ->MockGroupAO content-ref)
-                   (partial ->MockUserAO content-ref)
-                   (partial ->MockQuotaAO content-ref)))
+  [repo-ref]
+  (->MockAOFactory (partial ->MockFileSystemAO repo-ref)
+                   (partial ->MockEntryListAO repo-ref)
+                   (partial ->MockCollectionAO repo-ref)
+                   (partial ->MockDataObjectAO repo-ref)
+                   (partial ->MockGroupAO repo-ref)
+                   (partial ->MockUserAO repo-ref)
+                   (partial ->MockQuotaAO repo-ref)))
   
 
 (defrecord MockProxy [ao-factory-ctor file-factory-ctor]
@@ -197,29 +352,28 @@
          IRODSAccessObjectFactory.
        file-factory-ctor - This is a function that constructs an 
          IRODSFileFactory for a given iRODS account.  It takes an IRODSAccount 
-         as its only argument."}
-  ji/IRODSProxy
-  
-  (close 
-    [_])
+         as its only argument.
 
-  (getIRODSAccessObjectFactory 
-    [_] 
+     NOTE:  This has been implemented only enough to support current testing."}
+  j/IRODSProxy
+  
+  (close [_])
+
+  (getIRODSAccessObjectFactory [_] 
     (ao-factory-ctor))
 
-  (getIRODSFileFactory 
-    [_ acnt]
+  (getIRODSFileFactory [_ acnt] 
     (file-factory-ctor acnt)))
             
 
 (defn mk-mock-proxy
   "Constructs a MockProxy with mutable repository content.
  
-    Parameters:
-      content-ref - An atom containing the content.
+   Parameters:
+     repo-ref - An atom containing the content.
   
-    Returns:
+   Returns:
      It returns a MockProxy instance."
-  [content-ref]
-  (->MockProxy #(mk-mock-ao-factory content-ref) 
-               (partial ->MockFileFactory content-ref)))
+  [repo-ref]
+  (->MockProxy #(mk-mock-ao-factory repo-ref) 
+               (partial mk-mock-file-factory repo-ref)))
