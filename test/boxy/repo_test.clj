@@ -5,13 +5,13 @@
 
 (def ^{:private true} repo 
   {:groups                 {["group" "zone"] #{"user"}} 
-   "/zone"                 {:type :dir
+   "/zone"                 {:type :normal-dir
                             :acl  {}
                             :avus {}}
-   "/zone/home"            {:type :dir
+   "/zone/home"            {:type :normal-dir
                             :acl  {"group" :read}
                             :avus {}}
-   "/zone/home/user"       {:type :dir
+   "/zone/home/user"       {:type :normal-dir
                             :acl  {"user" :write}
                             :avus {}}
    "/zone/home/user/empty" {:type    :file
@@ -22,24 +22,15 @@
                             :acl     {"user" :own}
                             :avus    {"has-unit" ["value" "unit"] 
                                       "unitless" ["value" ""]}
-                            :content "content"}})
+                            :content "content"}
+   "/zone/home/user/link"  {:type :linked-dir
+                            :acl  {}
+                            :avus {}}})
 
 
 (deftest test-contains-entry?
   (is (contains-entry? repo "/zone"))
   (is (not (contains-entry? repo "/missing"))))
-
-
-(deftest test-is-dir?
-  (is (is-dir? repo "/zone"))
-  (is (not (is-dir? repo "/zone/home/user/file")))
-  (is (not (is-dir? repo "/missing"))))
-
-
-(deftest test-is-file?
-  (is (is-file? repo "/zone/home/user/file"))
-  (is (not (is-file? repo "/zone")))
-  (is (not (is-file? repo "/missing"))))
 
 
 (deftest test-get-avus
@@ -56,6 +47,12 @@
   (is (= :read (get-permission repo "/zone/home" "group" "zone")))
   (is (= :write (get-permission repo "/zone/home/user" "user" "zone")))
   (is (= :own (get-permission repo "/zone/home/user/file" "user" "zone"))))
+
+  
+(deftest test-get-type?
+  (is (= :normal-dir (get-type repo "/zone")))
+  (is (= :linked-dir (get-type repo "/zone/home/user/link")))
+  (is (= :file (get-type repo "/zone/home/user/file"))))
 
   
 (deftest test-get-user-groups

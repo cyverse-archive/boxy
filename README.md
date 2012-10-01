@@ -34,11 +34,16 @@ A user set, is just a set of user names.
 The structure of a directory entry and a file entry are both maps with nearly
 the same keys.  A file entry has one additional key, :content, that holds the
 textual contents of the file.  The remaining keys, common to both, are as 
-follows.  :type identifies whether the entry is a directory entry (:dir) or a
-file entry (:file).  :acl provides the ACL for the entry.  Finally, :avus
-provides the AVU metadata associated with the entry.
+follows.  :type identifies whether the entry is a normal directory entry 
+(:normal-dir), a linked directory (:linked-dir), or a file (:file).  :acl 
+provides the ACL for the entry.  Finally, :avus provides the AVU metadata 
+associated with the entry.
 
-    {:type :dir
+    {:type :normal-dir
+     :acl  {acl-entry}
+     :avus {avus-entry}}
+
+    {:type :linked-dir
      :acl  {acl-entry}
      :avus {avus-entry}}
 
@@ -77,7 +82,10 @@ Here's a full example.
                              :acl     {"user" :own}
                              :avus    {"has-unit" ["value" "unit"] 
                                        "unitless" ["value" ""]}
-                             :content "content"}}
+                             :content "content"}
+     "/zone/home/user/link" {:type :linked-dir
+                             :acl   {}
+                             :avus  {}}}}
 
 
 ## iRODS Proxy

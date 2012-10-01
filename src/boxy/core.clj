@@ -14,7 +14,9 @@
                                       QuotaAO
                                       UserAO
                                       UserGroupAO]
-           [org.irods.jargon.core.pub.domain UserGroup]
+           [org.irods.jargon.core.pub.domain ObjStat
+                                             ObjStat$SpecColType
+                                             UserGroup]
            [org.irods.jargon.core.pub.io FileIOOperations
                                          IRODSFile
                                          IRODSFileFactory
@@ -57,11 +59,21 @@
   (getFileDescriptor [_]
     3)
   
+  (initializeObjStatForFile [_]
+    "NOTE:  The returned ObjStat instace only indentifes the SpecColType of the
+     entry the path points to."
+    (doto (ObjStat.)
+      (.setSpecColType (condp = (r/get-type @repo-ref path)
+                         :normal-dir  ObjStat$SpecColType/NORMAL
+                         :linked-dir  ObjStat$SpecColType/LINKED_COLL
+                                      nil))))
+        
   (isDirectory [_]
-    (r/is-dir? @repo-ref path))
+    (let [type (r/get-type @repo-ref path)]
+      (or (= :normal-dir type) (= :linked-dir type))))
   
   (isFile [_]
-    (r/is-file? @repo-ref path))
+    (= :file (r/get-type @repo-ref path)))
   
   (mkdirs [_]
     "TODO: implement this method"

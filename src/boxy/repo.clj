@@ -28,11 +28,15 @@
    The structure of a directory entry and a file entry are both maps with nearly
    the same keys.  A file entry has one additional key, :content, that holds the
    textual contents of the file.  The remaining keys, common to both, are as 
-   follows.  :type identifies whether the entry is a directory entry (:dir) or a
-   file entry (:file).  :acl provides the ACL for the entry.  Finally, :avus
-   provides the AVU metadata associated with the entry.
+   follows.  :type identifies whether the entry is a normal directory entry 
+   (:normal-dir), a linked directory (:linked-dir) or a file entry (:file).  
+   :acl provides the ACL for the entry.  Finally, :avus provides the AVU metadata associated with the entry.
 
-   {:type :dir
+   {:type :normal-dir
+    :acl  {acl-entry}
+    :avus {avus-entry}}
+
+   {:type :linked-dir
     :acl  {acl-entry}
     :avus {avus-entry}}
 
@@ -58,20 +62,23 @@
    Here's a full example.
 
    {:groups               {[\"group\" \"zone\"] #{\"user\"}} 
-   \"/zone\"                {:type :dir
+   \"/zone\"                {:type :normal-dir
                            :acl  {}
                            :avus {}}
-   \"/zone/home\"           {:type :dir
+   \"/zone/home\"           {:type :normal-dir
                            :acl  {\"group\" :read}
                            :avus {}}
-   \"/zone/home/user\"      {:type :dir
+   \"/zone/home/user\"      {:type :normal-dir
                            :acl  {\"user\" :write}
                            :avus {}}
    \"/zone/home/user/file\" {:type    :file
                            :acl     {\"user\" :own}
                            :avus    {\"has-unit\" [\"value\" \"unit\"] 
                                      \"unitless\" [\"value\" \"\"]}
-                           :content \"content\"}}
+                           :content \"content\"}
+   \"/zone/home/user/link\" {:type :linked-dir
+                           :acl  {}
+                           :avus {}}}
 
    FIXME:  This repository does not consider the permissions of the connected
            user making the requests"
@@ -89,33 +96,6 @@
      It returns true if the path points an entry, otherwise false."
   [repo path]
   (contains? repo (cf/rm-last-slash path)))
-
-
-(defn is-dir?
-  "Determines whether or not the given path points to a directory in the 
-   repository.
-
-   Parameters:
-     repo - The repository to inspect.
-     path - The absolute path of the entry to check.
-
-   Returns:
-     It returns true if the entry is a directory, otherwise false."
-  [repo path]
-  (= :dir (:type (get repo (cf/rm-last-slash path)))))
-
-
-(defn is-file?
-  "Determines whether or not the given path points to a file in the repository.
-
-   Parameters:
-     repo - The repository to inspect.
-     path - The absolute path of the entry to check.
-
-   Returns:
-     It returns true if the entry is a file, otherwise false."
-  [repo path]
-  (= :file (:type (get repo path))))
 
 
 (defn get-avus
@@ -153,6 +133,20 @@
    FIXME:  This does not consider zone."
   [repo path user zone]
   (-> repo (get path) :acl (get user)))
+
+
+(defn get-type
+  "Indicates the type of entry a path points to.
+
+   Parameters:
+     repo - The repository to inspect.
+     path - The absolute path of the entry to check.
+
+   Returns:
+     It returns :file for a file, :normal-dir for a normal directory, or
+     :linked-dir for a linked directory."
+  [repo path]
+  (:type (get repo path)))
 
 
 (defn get-user-groups

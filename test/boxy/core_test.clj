@@ -12,7 +12,8 @@
                                       QuotaAO
                                       UserAO
                                       UserGroupAO]
-           [org.irods.jargon.core.pub.domain AvuData]
+           [org.irods.jargon.core.pub.domain AvuData
+                                             ObjStat$SpecColType]
            [org.irods.jargon.core.pub.io IRODSFile 
                                          IRODSFileFactory
                                          IRODSFileOutputStream]
@@ -21,19 +22,22 @@
 
 (def ^{:private true} init-content 
   {:groups                {["group" "zone"] #{"user"}}
-   "/zone"                {:type :dir
+   "/zone"                {:type :normal-dir
                            :acl  {}
                            :avus {}}
-   "/zone/home"           {:type :dir
+   "/zone/home"           {:type :normal-dir
                            :acl  {"user" :read}
                            :avus {}}
-   "/zone/home/user"      {:type :dir
+   "/zone/home/user"      {:type :normal-dir
                            :acl  {"user" :write}
                            :avus {}}
    "/zone/home/user/file" {:type    :file
                            :acl     {"user" :own}
                            :avus    {"attribute" ["value" "unit"]}
-                           :content ""}})
+                           :content ""}
+   "/zone/home/user/link" {:type :linked-dir
+                           :acl  {}
+                           :avus {}}})
 
 
 (def ^{:private true} account 
@@ -66,6 +70,16 @@
   (is (.exists (->MockFile (atom init-content) 
                            account 
                            "/zone/home/user/file"))))
+
+
+(deftest test-MockFile-initializeObjStatForFile
+  (letfn [(get-type ([path] 
+                     (.. (->MockFile (atom init-content) account path)
+                       initializeObjStatForFile
+                       getSpecColType)))] 
+    (is (= ObjStat$SpecColType/NORMAL (get-type "/zone")))
+    (is (= ObjStat$SpecColType/LINKED_COLL (get-type "/zone/home/user/link")))
+    (is (nil? (get-type "zone/home/user/file")))))
 
 
 (deftest test-MockFile-isDirectory
