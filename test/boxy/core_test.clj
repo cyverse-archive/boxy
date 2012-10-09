@@ -72,6 +72,11 @@
                            "/zone/home/user/file"))))
 
 
+(deftest test-MockFile-getParent
+  (let [file (->MockFile (atom init-content) account "/zone/home")]
+    (is (= "/zone" (.getParent file)))))
+
+
 (deftest test-MockFile-initializeObjStatForFile
   (letfn [(get-type ([path] 
                      (.. (->MockFile (atom init-content) account path)
@@ -125,6 +130,16 @@
     (is (instance? IRODSFileOutputStream 
                    (.instanceIRODSFileOutputStream factory 
                      (->MockFile content-ref account "/zone/home/user/file"))))))
+
+
+(deftest test-MockFileSystemAO-getListDir
+  (let [content (atom init-content)
+        ao      (->MockFileSystemAO content account)]
+    (is (= ["/zone/home"] 
+           (.getListInDir ao (->MockFile content account "/zone"))))
+    (is (= #{"/zone/home/user/file" "/zone/home/user/link"}
+           (set (.getListInDir ao 
+                               (->MockFile content account "/zone/home/user/file")))))))
 
 
 (deftest test-MockCollectionAO-getPermissionForCollection

@@ -2,7 +2,8 @@
   "This namespace provides an implementation of the Jargon classes for 
    interacting with a mock up of an iRODS repository.  The function 
    mk-mock-proxy should normally be the entry point."
-  (:require [boxy.jargon-if :as j]
+  (:require [clojure-commons.file-utils :as cf]
+            [boxy.jargon-if :as j]
             [boxy.repo :as r])
   (:import [java.util List]
            [org.irods.jargon.core.protovalues FilePermissionEnum]
@@ -58,6 +59,9 @@
   
   (getFileDescriptor [_]
     3)
+  
+  (getParent [_]
+    (cf/dirname path))
   
   (initializeObjStatForFile [_]
     "NOTE:  The returned ObjStat instace only indentifes the SpecColType of the
@@ -151,7 +155,12 @@
      Parameters:
        repo-ref - An atom containing the content.
        account - The IRODSAccount identifying the connected user."}
-  IRODSFileSystemAO)
+  IRODSFileSystemAO
+  
+  (getListInDir [_ file]
+    (r/get-members @repo-ref (if (.isDirectory file)
+                               (.getAbsolutePath file)
+                               (.getParent file)))))
 
 
 (defrecord MockEntryListAO [repo-ref account]

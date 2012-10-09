@@ -115,6 +115,20 @@
          (keys avus))))
 
 
+(defn get-members
+  "Retrieves the immediate members of a given directory.
+
+   Parameters:
+     repo - The repository to inspect.
+     path - the absolute path to the directory.
+
+   Returns:
+     A list of absolute paths to the members"
+  [repo parent-path]
+  (let [re (re-pattern (str "^" (cf/add-trailing-slash parent-path) "[^/]+$"))]
+    (filter #(and (not= :groups %) (re-matches re %)) (keys repo))))
+
+
 (defn get-permission
   "Retrieves the access permission a user or group has for a given entry in the 
    repository. 

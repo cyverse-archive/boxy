@@ -41,6 +41,10 @@
   (is (empty? (get-avus repo "/missing"))))
 
 
+(deftest test-get-members
+  (is (= (get-members repo "/zone") ["/zone/home"])))
+  
+  
 (deftest test-get-permission
   (is (nil? (get-permission repo "/zone" "user" "zone")))
   (is (nil? (get-permission repo "/zone/home" "user" "zone")))
