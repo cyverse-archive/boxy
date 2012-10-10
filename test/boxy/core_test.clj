@@ -3,6 +3,7 @@
         boxy.core)
   (:require [boxy.repo :as r])
   (:import [org.irods.jargon.core.connection IRODSAccount] 
+           [org.irods.jargon.core.exception FileNotFoundException]
            [org.irods.jargon.core.protovalues FilePermissionEnum]
            [org.irods.jargon.core.pub CollectionAO
                                       CollectionAndDataObjectListAndSearchAO
@@ -72,6 +73,11 @@
                            "/zone/home/user/file"))))
 
 
+(deftest test-MockFile-getAbsolutePath
+  (is (= "/zone" 
+         (.getAbsolutePath (->MockFile (atom init-content) account "/zone/")))))
+
+  
 (deftest test-MockFile-getParent
   (let [file (->MockFile (atom init-content) account "/zone/home")]
     (is (= "/zone" (.getParent file)))))
@@ -135,12 +141,21 @@
 (deftest test-MockFileSystemAO-getListDir
   (let [content (atom init-content)
         ao      (->MockFileSystemAO content account)]
-    (is (= ["home"] 
-           (.getListInDir ao (->MockFile content account "/zone"))))
-    (is (= #{"file" "link"}
-           (set (.getListInDir ao 
-                               (->MockFile content account "/zone/home/user/file")))))))
-
+    (testing "testing directory"
+      (is (= ["home"] 
+             (.getListInDir ao (->MockFile content account "/zone")))))
+    (testing "testing file"
+      (is (= #{"file" "link"}
+             (set (.getListInDir ao 
+                    (->MockFile content account "/zone/home/user/file"))))))
+    (testing "missing entry"
+      (let [thrown? (try 
+                      (.getListInDir ao (->MockFile content account "/missing"))
+                      false
+                      (catch FileNotFoundException _
+                        true))]
+        (is thrown?)))))
+                        
 
 (deftest test-MockCollectionAO-getPermissionForCollection
   (let [ao (->MockCollectionAO (atom init-content) account)]

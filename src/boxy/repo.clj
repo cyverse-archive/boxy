@@ -95,7 +95,7 @@
    Returns:
      It returns true if the path points an entry, otherwise false."
   [repo path]
-  (contains? repo (cf/rm-last-slash path)))
+  (contains? repo path))
 
 
 (defn get-avus
@@ -110,7 +110,7 @@
      represented as a triplet of the form [attribute value unit].  If the 
      attribute is unitless, unit will be the empty string."
   [repo path]
-  (let [avus (:avus (get repo (cf/rm-last-slash path)))]
+  (let [avus (:avus (get repo path))]
     (map #(vec (cons % (get avus %))) 
          (keys avus))))
 

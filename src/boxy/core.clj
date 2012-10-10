@@ -6,6 +6,7 @@
             [boxy.jargon-if :as j]
             [boxy.repo :as r])
   (:import [java.util List]
+           [org.irods.jargon.core.exception FileNotFoundException]
            [org.irods.jargon.core.protovalues FilePermissionEnum]
            [org.irods.jargon.core.pub CollectionAO
                                       CollectionAndDataObjectListAndSearchAO
@@ -52,28 +53,28 @@
         true)))
   
   (exists [_]
-    (r/contains-entry? @repo-ref path))
+    (r/contains-entry? @repo-ref (cf/rm-last-slash path)))
   
   (getAbsolutePath [_]
-    path)
+    (cf/rm-last-slash path))
   
   (getFileDescriptor [_]
     3)
   
   (getParent [_]
-    (cf/dirname path))
+    (cf/rm-last-slash (cf/dirname path)))
   
   (initializeObjStatForFile [_]
     "NOTE:  The returned ObjStat instace only indentifes the SpecColType of the
      entry the path points to."
     (doto (ObjStat.)
-      (.setSpecColType (condp = (r/get-type @repo-ref path)
+      (.setSpecColType (condp = (r/get-type @repo-ref (cf/rm-last-slash path))
                          :normal-dir  ObjStat$SpecColType/NORMAL
                          :linked-dir  ObjStat$SpecColType/LINKED_COLL
                                       nil))))
         
   (isDirectory [_]
-    (let [type (r/get-type @repo-ref path)]
+    (let [type (r/get-type @repo-ref (cf/rm-last-slash path))]
       (or (= :normal-dir type) (= :linked-dir type))))
   
   (isFile [_]
@@ -158,9 +159,11 @@
   IRODSFileSystemAO
   
   (getListInDir [_ file]
-    (map #(cf/basename %) (r/get-members @repo-ref (if (.isDirectory file)
-                                                     (.getAbsolutePath file)
-                                                     (.getParent file))))))
+    (if-not (.exists file)
+      (throw (FileNotFoundException. (str (.getAbsolutePath file) " not found")))
+      (map #(cf/basename %) (r/get-members @repo-ref (if (.isDirectory file)
+                                                       (.getAbsolutePath file)
+                                                       (.getParent file)))))))
 
 
 (defrecord MockEntryListAO [repo-ref account]
@@ -184,7 +187,7 @@
   CollectionAO
   
   (getPermissionForCollection [_ path user zone]
-    (condp = (r/get-permission @repo-ref path user zone)
+    (condp = (r/get-permission @repo-ref (cf/rm-last-slash path) user zone)
       :own   FilePermissionEnum/OWN
       :read  FilePermissionEnum/READ
       :write FilePermissionEnum/WRITE
@@ -206,7 +209,7 @@
   (addAVUMetadata [_ path avu]
     (reset! repo-ref 
             (r/add-avu @repo-ref 
-                     path 
+                     (cf/rm-last-slash path) 
                      (.getAttribute avu) 
                      (.getValue avu) 
                      (.getUnit avu))))
@@ -215,14 +218,15 @@
     "NOTE:  I don't know what a domain object Id or unique name are, so I'm 
             using the path for both."
     "FIXME:  This doesn't check to see if the path points to a collection."
-    (map #(MetaDataAndDomainData/instance 
-            MetaDataAndDomainData$MetadataDomain/DATA
-            path
-            path
-            (first %)
-            (second %)
-            (last %))
-         (r/get-avus @repo-ref path)))
+    (let [path' (cf/rm-last-slash path)]
+      (map #(MetaDataAndDomainData/instance 
+              MetaDataAndDomainData$MetadataDomain/DATA
+              path'
+              path'
+              (first %)
+              (second %)
+              (last %))
+           (r/get-avus @repo-ref path'))))
   
   (getPermissionForDataObject [_ path user zone]
     #_"TODO:  implement")
