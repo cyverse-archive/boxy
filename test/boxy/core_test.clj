@@ -135,9 +135,9 @@
 (deftest test-MockFileSystemAO-getListDir
   (let [content (atom init-content)
         ao      (->MockFileSystemAO content account)]
-    (is (= ["/home"] 
+    (is (= ["home"] 
            (.getListInDir ao (->MockFile content account "/zone"))))
-    (is (= #{"/file" "/link"}
+    (is (= #{"file" "link"}
            (set (.getListInDir ao 
                                (->MockFile content account "/zone/home/user/file")))))))
 

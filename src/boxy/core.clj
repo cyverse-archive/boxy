@@ -158,10 +158,9 @@
   IRODSFileSystemAO
   
   (getListInDir [_ file]
-    (map #(str "/" (cf/basename %)) 
-         (r/get-members @repo-ref (if (.isDirectory file)
-                                    (.getAbsolutePath file)
-                                    (.getParent file))))))
+    (map #(cf/basename %) (r/get-members @repo-ref (if (.isDirectory file)
+                                                     (.getAbsolutePath file)
+                                                     (.getParent file))))))
 
 
 (defrecord MockEntryListAO [repo-ref account]
