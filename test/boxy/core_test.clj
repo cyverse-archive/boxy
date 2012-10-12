@@ -3,7 +3,8 @@
         boxy.core)
   (:require [boxy.repo :as r])
   (:import [org.irods.jargon.core.connection IRODSAccount] 
-           [org.irods.jargon.core.exception FileNotFoundException]
+           [org.irods.jargon.core.exception DataNotFoundException
+                                            FileNotFoundException]
            [org.irods.jargon.core.protovalues FilePermissionEnum]
            [org.irods.jargon.core.pub CollectionAO
                                       CollectionAndDataObjectListAndSearchAO
@@ -22,31 +23,47 @@
 
 
 (def ^{:private true} init-content 
-  {:groups                {["group" "zone"] #{"user"}}
-   "/zone"                {:type :normal-dir
-                           :acl  {}
-                           :avus {}}
-   "/zone/home"           {:type :normal-dir
-                           :acl  {"user" :read}
-                           :avus {}}
-   "/zone/home/user"      {:type :normal-dir
-                           :acl  {"user" :write}
-                           :avus {}}
-   "/zone/home/user/file" {:type    :file
-                           :acl     {"user" :own}
-                           :avus    {"attribute" ["value" "unit"]}
-                           :content ""}
-   "/zone/home/user/link" {:type :linked-dir
-                           :acl  {}
-                           :avus {}}})
+  {:users                   #{"user1" "user2"}
+   :groups                  {["group" "zone"] #{"user1" "user2"}}
+   "/zone"                  {:type :normal-dir
+                             :acl  {}
+                             :avus {}}
+   "/zone/home"             {:type :normal-dir
+                             :acl  {"user1" :read "user2" :read}
+                             :avus {}}
+   "/zone/home/user1"       {:type :normal-dir
+                             :acl  {"user1" :write}
+                             :avus {}}
+   "/zone/home/user1/file"  {:type    :file
+                             :acl     {"user1" :own}
+                             :avus    {"attribute" ["value" "unit"]}
+                             :content ""}
+   "/zone/home/user1/link"  {:type :linked-dir
+                             :acl  {"user1" :own}
+                             :avus {}}
+   "/zone/home/user2"       {:type :normal-dir
+                             :acl  {"user2" :write}
+                             :avus {}}
+   "/zone/home/user2/file1" {:type    :normal-dir
+                             :acl     {"user2" :own}
+                             :avus    {}
+                             :content ""}
+   "/zone/home/user2/file2" {:type    :normal-dir
+                             :acl     {"user2" :own "user1" :read}
+                             :avus    {}
+                             :content ""}
+   "/zone/home/user2/file3" {:type    :normal-dir
+                             :acl     {"user2" :own "user1" :write}
+                             :avus    {}
+                             :content ""}})
 
 
 (def ^{:private true} account 
   (IRODSAccount. "localhost" 
                  1247 
-                 "user" 
+                 "user1" 
                  "hackme"
-                 "/zone/home/user"
+                 "/zone/home/user1"
                  "zone"
                  "resource"))     
 
@@ -54,7 +71,7 @@
 (deftest test-MockFile-createNewFile
   (testing "file doesn't already exist"
     (let [content-ref (atom init-content)
-          path        "/zone/home/user/new"
+          path        "/zone/home/user1/new"
           result      (.createNewFile (->MockFile content-ref account path))]
       (is result)
       (is (r/contains-entry? @content-ref path))))
@@ -62,7 +79,7 @@
     (let [content-ref (atom init-content)
           result      (.createNewFile (->MockFile content-ref 
                                                   account  
-                                                  "/zone/home/user/file"))]
+                                                  "/zone/home/user1/file"))]
       (is (not result))
       (is (= init-content @content-ref)))))
   
@@ -70,7 +87,7 @@
 (deftest test-MockFile-exists
   (is (.exists (->MockFile (atom init-content) 
                            account 
-                           "/zone/home/user/file"))))
+                           "/zone/home/user1/file"))))
 
 
 (deftest test-MockFile-getAbsolutePath
@@ -89,25 +106,27 @@
                        initializeObjStatForFile
                        getSpecColType)))] 
     (is (= ObjStat$SpecColType/NORMAL (get-type "/zone")))
-    (is (= ObjStat$SpecColType/LINKED_COLL (get-type "/zone/home/user/link")))
+    (is (= ObjStat$SpecColType/LINKED_COLL (get-type "/zone/home/user1/link")))
     (is (nil? (get-type "zone/home/user/file")))))
 
 
 (deftest test-MockFile-isDirectory
   (let [content-ref (atom init-content)]
     (is (.isDirectory (->MockFile content-ref account "/zone")))
-    (is (not (.isDirectory (->MockFile content-ref account "/zone/home/user/file"))))))
+    (is (not (.isDirectory (->MockFile content-ref 
+                                       account 
+                                       "/zone/home/user1/file"))))))
 
 
 (deftest test-MockFile-isFile
   (let [content-ref (atom init-content)]
-    (is (.isFile (->MockFile content-ref account "/zone/home/user/file")))
+    (is (.isFile (->MockFile content-ref account "/zone/home/user1/file")))
     (is (not (.isFile (->MockFile content-ref account "/zone"))))))
 
 
 (deftest test-MockFileIOOperations-write
   (let [content-ref (atom nil)
-        path        "/zone/home/user/file"
+        path        "/zone/home/user1/file"
         bytes       (.getBytes "content")
         ops         (->MockFileIOOperations content-ref 
                                             account 
@@ -132,10 +151,10 @@
 (deftest test-mock-file-factory-ctor
   (let [content-ref (atom init-content)
         factory     (mk-mock-file-factory content-ref account)]
-    (is (instance? IRODSFile (.instanceIRODSFile factory "/zone/home/user/file")))
+    (is (instance? IRODSFile (.instanceIRODSFile factory "/zone/home/user1/file")))
     (is (instance? IRODSFileOutputStream 
                    (.instanceIRODSFileOutputStream factory 
-                     (->MockFile content-ref account "/zone/home/user/file"))))))
+                     (->MockFile content-ref account "/zone/home/user1/file"))))))
 
 
 (deftest test-MockFileSystemAO-getListDir
@@ -147,7 +166,7 @@
     (testing "testing file"
       (is (= #{"file" "link"}
              (set (.getListInDir ao 
-                    (->MockFile content account "/zone/home/user/file"))))))
+                    (->MockFile content account "/zone/home/user1/file"))))))
     (testing "missing entry"
       (let [thrown? (try 
                       (.getListInDir ao (->MockFile content account "/missing"))
@@ -160,18 +179,18 @@
 (deftest test-MockCollectionAO-getPermissionForCollection
   (let [ao (->MockCollectionAO (atom init-content) account)]
     (is (= FilePermissionEnum/NONE
-           (.getPermissionForCollection ao "/zone" "user" "zone")))
+           (.getPermissionForCollection ao "/zone" "user1" "zone")))
     (is (= FilePermissionEnum/READ 
-           (.getPermissionForCollection ao "/zone/home" "user" "zone")))
+           (.getPermissionForCollection ao "/zone/home" "user1" "zone")))
     (is (= FilePermissionEnum/WRITE
-           (.getPermissionForCollection ao "/zone/home/user" "user" "zone")))
+           (.getPermissionForCollection ao "/zone/home/user1" "user1" "zone")))
     (is (= FilePermissionEnum/OWN 
-           (.getPermissionForCollection ao "/zone/home/user/file" "user" "zone")))))
+           (.getPermissionForCollection ao "/zone/home/user1/link" "user1" "zone")))))
     
   
 (deftest test-MockDataObjectAO-addAVUMetadata
   (let [content-ref (atom init-content)
-        path        "/zone/home/user/file"]
+        path        "/zone/home/user1/file"]
     (.addAVUMetadata (->MockDataObjectAO content-ref account)
                      path 
                      (AvuData. "a" "v" "u"))
@@ -181,7 +200,7 @@
 (deftest test-MockDataObjectAO-findMetadataValuesForDataObject
   (let [metadata  (.findMetadataValuesForDataObject 
                     (->MockDataObjectAO (atom init-content) account) 
-                    "/zone/home/user/file")
+                    "/zone/home/user1/file")
         metadatum (first metadata)]
   (is (= 1 (count metadata)))
   (is (= "attribute" (.getAvuAttribute metadatum)))
@@ -190,16 +209,45 @@
   (is (= MetaDataAndDomainData$MetadataDomain/DATA (.getMetadataDomain metadatum)))))
 
 
+(deftest test-MockDataObjectAO-getPermissionForDataObject
+  (let [ao (->MockDataObjectAO (atom init-content) account)]
+    (is (= FilePermissionEnum/NONE
+           (.getPermissionForDataObject ao 
+             "/zone/home/user2/file1" "user1" "zone")))
+    (is (= FilePermissionEnum/READ 
+           (.getPermissionForDataObject ao 
+             "/zone/home/user2/file2" "user1" "zone")))
+    (is (= FilePermissionEnum/WRITE
+           (.getPermissionForDataObject ao 
+             "/zone/home/user2/file3" "user1" "zone")))
+    (is (= FilePermissionEnum/OWN 
+           (.getPermissionForDataObject ao "/zone/home/user1/file" "user1" "zone")))))
+
+
 (deftest test-MockGroupAO-findUserGroupsForUser
   (let [groups (.findUserGroupsForUser (->MockGroupAO (atom init-content) 
                                                       account) 
-                                       "user")
+                                       "user1")
         group  (first groups)]
     (is (= 1 (count groups)))
     (is (= "group" (.getUserGroupName group)))
     (is (= "zone" (.getZone group)))))
   
 
+(deftest test-MockUserAO-findByName
+  (let [ao (->MockUserAO (atom init-content) account)]
+    (testing "known user"
+      (is (= "user1" 
+             (.. ao (findByName "user1") getName))))
+    (testing "unknown user"
+      (let [thrown? (try
+                      (.findByName ao "unknown")
+                      false
+                      (catch DataNotFoundException _
+                        true))]
+        (is thrown?)))))
+    
+  
 (deftest test-ao-factory-ctor
   (let [factory (mk-mock-ao-factory (atom init-content))]
     (is (instance? CollectionAO (.getCollectionAO factory account)))

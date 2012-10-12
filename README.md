@@ -10,12 +10,18 @@ for unit testing on iPlant projects._
 ## Repository Representation
 
 The repository is represented as a map.  The keys of the map are the paths to 
-the files and directories in the repository.  There is one special key, :groups, 
-that provides access to the group information.  
+the files and directories in the repository.  There is two special keys:  
+`:users` provides access to the user information and `:groups` provides access 
+to the group information.  
 
-    {:groups              {groups-entry}
+    {:users               #{user-set}
+     :groups              {groups-entry}
      "/path/to/directory" {directory-entry}
      "/path/to/file"      {file-entry}}
+
+A user set, is just a set of user names.
+
+    #{"user-1" "user-2"}
 
 The groups entry is a map of group Ids to the sets of users belonging to the
 respective groups.
@@ -27,16 +33,12 @@ second being the zone the group belongs to.
 
     ["group-name" "zone"]
 
-A user set, is just a set of user names.
-
-    #{"user-1" "user-2"}
-
 The structure of a directory entry and a file entry are both maps with nearly
-the same keys.  A file entry has one additional key, :content, that holds the
+the same keys.  A file entry has one additional key, `:content`, that holds the
 textual contents of the file.  The remaining keys, common to both, are as 
-follows.  :type identifies whether the entry is a normal directory entry 
-(:normal-dir), a linked directory (:linked-dir), or a file (:file).  :acl 
-provides the ACL for the entry.  Finally, :avus provides the AVU metadata 
+follows.  `:type` identifies whether the entry is a normal directory entry 
+(`:normal-dir`), a linked directory (`:linked-dir`), or a file (`:file`).  `:acl` 
+provides the ACL for the entry.  Finally, `:avus` provides the AVU metadata 
 associated with the entry.
 
     {:type :normal-dir
@@ -53,22 +55,23 @@ associated with the entry.
      :content "file content"}
 
 An ACL entry is a map of user names to their respective access permissions.  The 
-allowed access permissions are :read for read permission, :write for read and 
-write permission, and :own for read, write and ownership permissions.
+allowed access permissions are `:read` for read permission, `:write` for read 
+and write permission, and `:own` for read, write and ownership permissions.
 
     {"read-user"  :read
      "write-user" :write
      "owner-user" :own}
 
 An AVU entry is a map from attribute names to their corresponding values and 
-units.  The values and units are stored as a pair of strings.  A unit of "" 
+units.  The values and units are stored as a pair of strings.  A unit of `""` 
 means unitless.  
 
     {"attribute" ["value" "unit"] "unitless" ["value" ""]} 
 
 Here's a full example.
 
-    {:groups                {["group" "zone"] #{"user"}} 
+    {:users                 #{"user"}
+     :groups                {["group" "zone"] #{"user"}} 
      "/zone"                {:type :dir
                              :acl  {}
                              :avus {}}

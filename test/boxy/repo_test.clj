@@ -4,7 +4,8 @@
 
 
 (def ^{:private true} repo 
-  {:groups                 {["group" "zone"] #{"user"}} 
+  {:users                  #{"user"}
+   :groups                 {["group" "zone"] #{"user"}} 
    "/zone"                 {:type :normal-dir
                             :acl  {}
                             :avus {}}
@@ -62,6 +63,11 @@
 (deftest test-get-user-groups
   (is (= '(["group" "zone"]) (get-user-groups repo "user")))
   (is (empty? (get-user-groups repo "unknown"))))
+
+
+(deftest test-user-exists?
+  (is (user-exists? repo "user"))
+  (is (not (user-exists? repo "unknown"))))
 
 
 (deftest test-add-avu

@@ -3,13 +3,19 @@
    and provides functions that manipulate the repository in an immutable way.
 
    The repository is represented as a map.  The keys of the map are the paths
-   to the files and directories in the repository.  There is one special key, 
-   :groups, that provides access to the group information.  
+   to the files and directories in the repository.  There are two special keys: 
+   :users provides access to the user information and :groups provides access to 
+   the group information.  
 
-   {:groups              {groups-entry}
+   {:users               #{user-set}
+    :groups              {groups-entry}
     \"/path/to/directory\" {directory-entry}
     \"/path/to/file\"      {file-entry}
    }
+
+   A user set, is just a set of user names.
+
+   #{\"user1\" \"user2\"}
 
    The groups entry is a map of group Ids to the sets of users belonging to the
    respective groups.
@@ -21,16 +27,13 @@
 
    [\"group name\" \"zone\"]
 
-   A user set, is just a set of user names.
-
-   #{\"user1\" \"user2\"}
-
    The structure of a directory entry and a file entry are both maps with nearly
    the same keys.  A file entry has one additional key, :content, that holds the
    textual contents of the file.  The remaining keys, common to both, are as 
    follows.  :type identifies whether the entry is a normal directory entry 
    (:normal-dir), a linked directory (:linked-dir) or a file entry (:file).  
-   :acl provides the ACL for the entry.  Finally, :avus provides the AVU metadata associated with the entry.
+   :acl provides the ACL for the entry.  Finally, :avus provides the AVU 
+   metadata associated with the entry.
 
    {:type :normal-dir
     :acl  {acl-entry}
@@ -61,7 +64,8 @@
 
    Here's a full example.
 
-   {:groups               {[\"group\" \"zone\"] #{\"user\"}} 
+   {:users                #{\"user\"}
+    :groups               {[\"group\" \"zone\"] #{[\"user\"}} 
    \"/zone\"                {:type :normal-dir
                            :acl  {}
                            :avus {}}
@@ -126,7 +130,9 @@
      A list of absolute paths to the members"
   [repo parent-path]
   (let [re (re-pattern (str "^" (cf/add-trailing-slash parent-path) "[^/]+$"))]
-    (filter #(and (not= :groups %) (re-matches re %)) (keys repo))))
+    (filter #(and (not (keyword? %)) 
+                  (re-matches re %)) 
+            (keys repo))))
 
 
 (defn get-permission
@@ -178,6 +184,22 @@
   [repo user]
   (let [groups (:groups repo)]
     (filter #(contains? (get groups %) user) (keys groups))))
+
+
+(defn user-exists?
+  "Indicates whether or not there is an account for a given user name.
+
+   Parameters:
+     repo - The repository to inspect.
+     user - The name of the user
+
+   Returns:
+     It returns true if there is a user account with the given name, otherwise 
+     it returns false.
+ 
+   FIXME:  This does not consider the user's zone."
+  [repo user]
+  (contains? (:users repo) user))
 
 
 (defn add-avu

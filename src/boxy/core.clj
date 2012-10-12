@@ -6,7 +6,8 @@
             [boxy.jargon-if :as j]
             [boxy.repo :as r])
   (:import [java.util List]
-           [org.irods.jargon.core.exception FileNotFoundException]
+           [org.irods.jargon.core.exception DataNotFoundException
+                                            FileNotFoundException]
            [org.irods.jargon.core.protovalues FilePermissionEnum]
            [org.irods.jargon.core.pub CollectionAO
                                       CollectionAndDataObjectListAndSearchAO
@@ -18,6 +19,7 @@
                                       UserGroupAO]
            [org.irods.jargon.core.pub.domain ObjStat
                                              ObjStat$SpecColType
+                                             User
                                              UserGroup]
            [org.irods.jargon.core.pub.io FileIOOperations
                                          IRODSFile
@@ -187,6 +189,7 @@
   CollectionAO
   
   (getPermissionForCollection [_ path user zone]
+    "FIXME:  This doesn't check to see if the path points to a data object."
     (condp = (r/get-permission @repo-ref (cf/rm-last-slash path) user zone)
       :own   FilePermissionEnum/OWN
       :read  FilePermissionEnum/READ
@@ -229,7 +232,12 @@
            (r/get-avus @repo-ref path'))))
   
   (getPermissionForDataObject [_ path user zone]
-    #_"TODO:  implement")
+    "FIXME:  This doesn't check to see if the path points to a collection."
+    (condp = (r/get-permission @repo-ref (cf/rm-last-slash path) user zone)
+      :own   FilePermissionEnum/OWN
+      :read  FilePermissionEnum/READ
+      :write FilePermissionEnum/WRITE
+      nil    FilePermissionEnum/NONE))
   
   (setAccessPermissionOwn [_ zone path user])
     #_"TODO: implement")
@@ -269,8 +277,13 @@
      NOTE:  This has been implemented only enough to support current testing."}  
   UserAO
   
-  (findByName [_ name] 
-    #_"NOT IMPLEMENTED"))
+  (findByName [_ name]
+    "NOTE:  This function does not set the comment, createTime, Id, Info, 
+       modifyTime, userDN, userType or zone fields in the returned User object."
+    (if-not (r/user-exists? @repo-ref name)
+      (throw (DataNotFoundException. "unknown user"))
+      (doto (User.)
+        (.setName name)))))
 
 
 (defrecord MockQuotaAO [repo-ref account]
