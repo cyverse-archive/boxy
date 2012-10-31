@@ -349,6 +349,9 @@
   (getIRODSFileSystemAO [_ acnt] 
     (fs-ctor acnt))
 
+  (getIRODSGenQueryExecutor [_ acnt])
+    ;; NOT IMPLEMENTED
+  
   (getQuotaAO [_ acnt] 
     (quota-ctor acnt))
 
