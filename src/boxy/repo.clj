@@ -86,7 +86,7 @@
 
    FIXME:  This repository does not consider the permissions of the connected
            user making the requests"
-  (:require [clojure-commons.file-utils :as cf]))
+  (:require [clojure-commons.file-utils :as file]))
 
 
 (defn contains-entry?
@@ -102,6 +102,20 @@
   (contains? repo path))
 
 
+(defn get-acl
+  "Retrieves the ACL for the given entry in the repository.
+
+   Parameters:
+     repo - The repository to inspect.
+     path - The absolute path to the entry to inspect.
+
+   Returns:
+     It returns a mapping of user names to their respective permission.  Users
+     without permission are not returned."
+  [repo path]
+  (:acl (get repo path)))
+
+  
 (defn get-avus
   "Retrieves the set of AVUs for a given entry in the repository.
 
@@ -129,7 +143,7 @@
    Returns:
      A list of absolute paths to the members"
   [repo parent-path]
-  (let [re (re-pattern (str "^" (cf/add-trailing-slash parent-path) "[^/]+$"))]
+  (let [re (re-pattern (str "^" (file/add-trailing-slash parent-path) "[^/]+$"))]
     (filter #(and (not (keyword? %)) 
                   (re-matches re %)) 
             (keys repo))))
@@ -153,8 +167,8 @@
    FIXME:  This does not consider zone."
   [repo path user zone]
   (-> repo (get path) :acl (get user)))
-
-
+  
+  
 (defn get-type
   "Indicates the type of entry a path points to.
 

@@ -34,6 +34,11 @@
   (is (not (contains-entry? repo "/missing"))))
 
 
+(deftest test-get-acl
+  (is (empty? (get-acl repo "/zone")))
+  (is (= {"group" :read} (get-acl repo "/zone/home"))))
+
+  
 (deftest test-get-avus
   (let [file-avus (set (get-avus repo "/zone/home/user/file"))]
     (is (contains? file-avus ["has-unit" "value" "unit"]))

@@ -2,13 +2,14 @@
   "This namespace provides an implementation of the Jargon classes for 
    interacting with a mock up of an iRODS repository.  The function 
    mk-mock-proxy should normally be the entry point."
-  (:require [clojure-commons.file-utils :as cf]
-            [boxy.jargon-if :as j]
-            [boxy.repo :as r])
+  (:require [clojure-commons.file-utils :as file]
+            [boxy.jargon-if :as jargon]
+            [boxy.repo :as repo])
   (:import [java.util List]
            [org.irods.jargon.core.exception DataNotFoundException
                                             FileNotFoundException]
-           [org.irods.jargon.core.protovalues FilePermissionEnum]
+           [org.irods.jargon.core.protovalues FilePermissionEnum
+                                              UserTypeEnum]
            [org.irods.jargon.core.pub CollectionAO
                                       CollectionAndDataObjectListAndSearchAO
                                       DataObjectAO
@@ -20,6 +21,7 @@
            [org.irods.jargon.core.pub.domain ObjStat
                                              ObjStat$SpecColType
                                              User
+                                             UserFilePermission
                                              UserGroup]
            [org.irods.jargon.core.pub.io FileIOOperations
                                          IRODSFile
@@ -27,6 +29,15 @@
                                          IRODSFileOutputStream]
            [org.irods.jargon.core.query MetaDataAndDomainData
                                         MetaDataAndDomainData$MetadataDomain]))
+
+
+(defn- map-perm
+  [repo-perm]
+  (condp = repo-perm
+    :own   FilePermissionEnum/OWN
+    :read  FilePermissionEnum/READ
+    :write FilePermissionEnum/WRITE
+    nil    FilePermissionEnum/NONE))
 
 
 (defrecord MockFile [repo-ref account path]
@@ -48,39 +59,40 @@
     false)
   
   (createNewFile [_]
-    (if (r/contains-entry? @repo-ref path)
+    (if (repo/contains-entry? @repo-ref path)
       false
       (do
-        (reset! repo-ref (r/add-file @repo-ref path))
+        (reset! repo-ref (repo/add-file @repo-ref path))
         true)))
   
   (exists [_]
-    (r/contains-entry? @repo-ref (cf/rm-last-slash path)))
+    (repo/contains-entry? @repo-ref (file/rm-last-slash path)))
   
   (getAbsolutePath [_]
-    (cf/rm-last-slash path))
+    (file/rm-last-slash path))
   
   (getFileDescriptor [_]
     3)
   
   (getParent [_]
-    (cf/rm-last-slash (cf/dirname path)))
+    (file/rm-last-slash (file/dirname path)))
   
   (initializeObjStatForFile [_]
     "NOTE:  The returned ObjStat instace only indentifes the SpecColType of the
      entry the path points to."
     (doto (ObjStat.)
-      (.setSpecColType (condp = (r/get-type @repo-ref (cf/rm-last-slash path))
+      (.setSpecColType (condp = 
+                              (repo/get-type @repo-ref (file/rm-last-slash path))
                          :normal-dir  ObjStat$SpecColType/NORMAL
                          :linked-dir  ObjStat$SpecColType/LINKED_COLL
                                       nil))))
         
   (isDirectory [_]
-    (let [type (r/get-type @repo-ref (cf/rm-last-slash path))]
+    (let [type (repo/get-type @repo-ref (file/rm-last-slash path))]
       (or (= :normal-dir type) (= :linked-dir type))))
   
   (isFile [_]
-    (= :file (r/get-type @repo-ref path)))
+    (= :file (repo/get-type @repo-ref path)))
   
   (mkdirs [_]
     "TODO: implement this method"
@@ -108,7 +120,7 @@
     ^{:doc "This assures that buffer is a character array with 8 bit characters."}
     (let [path        (.getAbsolutePath file)
           add-content (String. buffer offset length)]
-      (reset! repo-ref (r/write-to-file @repo-ref path add-content offset))
+      (reset! repo-ref (repo/write-to-file @repo-ref path add-content offset))
       length)))
 
 
@@ -163,7 +175,7 @@
   (getListInDir [_ file]
     (if-not (.exists file)
       (throw (FileNotFoundException. (str (.getAbsolutePath file) " not found")))
-      (map #(cf/basename %) (r/get-members @repo-ref (if (.isDirectory file)
+      (map file/basename (repo/get-members @repo-ref (if (.isDirectory file)
                                                        (.getAbsolutePath file)
                                                        (.getParent file)))))))
 
@@ -190,11 +202,18 @@
   
   (getPermissionForCollection [_ path user zone]
     "FIXME:  This doesn't check to see if the path points to a data object."
-    (condp = (r/get-permission @repo-ref (cf/rm-last-slash path) user zone)
-      :own   FilePermissionEnum/OWN
-      :read  FilePermissionEnum/READ
-      :write FilePermissionEnum/WRITE
-      nil    FilePermissionEnum/NONE)))
+    (map-perm (repo/get-permission @repo-ref (file/rm-last-slash path) user zone)))
+  
+  (listPermissionsForCollection [_ path]
+    "FIXME:  This doesn't assign a correct zone to the return value."
+    (letfn [(mk-perm [acl-entry] 
+                     (let [user   (key acl-entry)]
+                       (UserFilePermission. user 
+                                            user
+                                            (map-perm (val acl-entry)) 
+                                            UserTypeEnum/RODS_UNKNOWN 
+                                            "zone")))]
+      (map mk-perm (repo/get-acl @repo-ref path)))))
 
 
 (defrecord MockDataObjectAO [repo-ref account]
@@ -211,17 +230,17 @@
   
   (addAVUMetadata [_ path avu]
     (reset! repo-ref 
-            (r/add-avu @repo-ref 
-                     (cf/rm-last-slash path) 
-                     (.getAttribute avu) 
-                     (.getValue avu) 
-                     (.getUnit avu))))
+            (repo/add-avu @repo-ref 
+                          (file/rm-last-slash path) 
+                          (.getAttribute avu) 
+                          (.getValue avu) 
+                          (.getUnit avu))))
     
   (^List findMetadataValuesForDataObject [_ ^String path]
     "NOTE:  I don't know what a domain object Id or unique name are, so I'm 
             using the path for both."
     "FIXME:  This doesn't check to see if the path points to a collection."
-    (let [path' (cf/rm-last-slash path)]
+    (let [path' (file/rm-last-slash path)]
       (map #(MetaDataAndDomainData/instance 
               MetaDataAndDomainData$MetadataDomain/DATA
               path'
@@ -229,16 +248,23 @@
               (first %)
               (second %)
               (last %))
-           (r/get-avus @repo-ref path'))))
+           (repo/get-avus @repo-ref path'))))
   
   (getPermissionForDataObject [_ path user zone]
     "FIXME:  This doesn't check to see if the path points to a collection."
-    (condp = (r/get-permission @repo-ref (cf/rm-last-slash path) user zone)
-      :own   FilePermissionEnum/OWN
-      :read  FilePermissionEnum/READ
-      :write FilePermissionEnum/WRITE
-      nil    FilePermissionEnum/NONE))
-  
+    (map-perm (repo/get-permission @repo-ref (file/rm-last-slash path) user zone)))
+ 
+  (listPermissionsForDataObject [_ path]
+    "FIXME:  This doesn't assign a correct zone to the return value."
+    (letfn [(mk-perm [acl-entry] 
+                     (let [user   (key acl-entry)]
+                       (UserFilePermission. user 
+                                            user
+                                            (map-perm (val acl-entry)) 
+                                            UserTypeEnum/RODS_UNKNOWN 
+                                            "zone")))]
+      (map mk-perm (repo/get-acl @repo-ref path))))
+    
   (setAccessPermissionOwn [_ zone path user])
     #_"TODO: implement")
 
@@ -263,7 +289,7 @@
                              (.setUserGroupId (str name ":" zone))
                              (.setUserGroupName name)
                              (.setZone zone))))]
-      (map mk-UserGroup (r/get-user-groups @repo-ref user)))))
+      (map mk-UserGroup (repo/get-user-groups @repo-ref user)))))
 
   
 (defrecord MockUserAO [repo-ref account]
@@ -280,7 +306,7 @@
   (findByName [_ name]
     "NOTE:  This function does not set the comment, createTime, Id, Info, 
        modifyTime, userDN, userType or zone fields in the returned User object."
-    (if-not (r/user-exists? @repo-ref name)
+    (if-not (repo/user-exists? @repo-ref name)
       (throw (DataNotFoundException. "unknown user"))
       (doto (User.)
         (.setName name)))))
@@ -396,7 +422,7 @@
          as its only argument.
 
      NOTE:  This has been implemented only enough to support current testing."}
-  j/IRODSProxy
+  jargon/IRODSProxy
   
   (close [_])
 

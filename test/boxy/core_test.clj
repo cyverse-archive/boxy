@@ -186,8 +186,22 @@
            (.getPermissionForCollection ao "/zone/home/user1" "user1" "zone")))
     (is (= FilePermissionEnum/OWN 
            (.getPermissionForCollection ao "/zone/home/user1/link" "user1" "zone")))))
-    
   
+
+(deftest test-MockCollectionAO-listPermissionsForDataObject
+  (testing "multiple permissions are retrieved"
+    (let [perms (.listPermissionsForCollection 
+                  (->MockCollectionAO (atom init-content) account) 
+                  "/zone/home")]
+      (is (= 2 (count perms)))))
+  (testing "structure of permission object"
+    (let [perm (first (.listPermissionsForCollection 
+                        (->MockCollectionAO (atom init-content) account) 
+                        "/zone/home/user1"))]
+      (is (= FilePermissionEnum/WRITE (.getFilePermissionEnum perm)))
+      (is (= "user1" (.getUserName perm))))))
+  
+    
 (deftest test-MockDataObjectAO-addAVUMetadata
   (let [content-ref (atom init-content)
         path        "/zone/home/user1/file"]
@@ -224,6 +238,20 @@
            (.getPermissionForDataObject ao "/zone/home/user1/file" "user1" "zone")))))
 
 
+(deftest test-MockDataObject-listPermissionsForDataObject
+  (testing "multiple permissions are retrieved"
+    (let [perms (.listPermissionsForDataObject 
+                  (->MockDataObjectAO (atom init-content) account) 
+                  "/zone/home/user2/file2")]
+      (is (= 2 (count perms)))))
+  (testing "structure of permission object"
+    (let [perm (first (.listPermissionsForDataObject 
+                        (->MockDataObjectAO (atom init-content) account) 
+                        "/zone/home/user1/file"))]
+      (is (= FilePermissionEnum/OWN (.getFilePermissionEnum perm)))
+      (is (= "user1" (.getUserName perm))))))
+  
+  
 (deftest test-MockGroupAO-findUserGroupsForUser
   (let [groups (.findUserGroupsForUser (->MockGroupAO (atom init-content) 
                                                       account) 
