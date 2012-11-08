@@ -1,7 +1,8 @@
 (ns boxy.core-test
   (:use clojure.test
         boxy.core)
-  (:require [boxy.repo :as r])
+  (:require [slingshot.slingshot :as ss]
+            [boxy.repo :as repo])
   (:import [org.irods.jargon.core.connection IRODSAccount] 
            [org.irods.jargon.core.exception DataNotFoundException
                                             FileNotFoundException]
@@ -48,7 +49,7 @@
                              :acl     {"user2" :own}
                              :avus    {}
                              :content ""}
-   "/zone/home/user2/file2" {:type    :normal-dir
+   "/zone/home/user2/file2" {:type    :file
                              :acl     {"user2" :own "user1" :read}
                              :avus    {}
                              :content ""}
@@ -74,7 +75,7 @@
           path        "/zone/home/user1/new"
           result      (.createNewFile (->MockFile content-ref account path))]
       (is result)
-      (is (r/contains-entry? @content-ref path))))
+      (is (repo/contains-entry? @content-ref path))))
   (testing "file already exists"
     (let [content-ref (atom init-content)
           result      (.createNewFile (->MockFile content-ref 
@@ -188,7 +189,7 @@
            (.getPermissionForCollection ao "/zone/home/user1/link" "user1" "zone")))))
   
 
-(deftest test-MockCollectionAO-listPermissionsForDataObject
+(deftest test-MockCollectionAO-listPermissionsForCollection
   (testing "multiple permissions are retrieved"
     (let [perms (.listPermissionsForCollection 
                   (->MockCollectionAO (atom init-content) account) 
@@ -199,7 +200,14 @@
                         (->MockCollectionAO (atom init-content) account) 
                         "/zone/home/user1"))]
       (is (= FilePermissionEnum/WRITE (.getFilePermissionEnum perm)))
-      (is (= "user1" (.getUserName perm))))))
+      (is (= "user1" (.getUserName perm)))))
+  (testing "missing collection"
+    (let [ao (->MockCollectionAO (atom init-content) account)]
+      (is (ss/try+
+            (.listPermissionsForCollection ao "/missing")
+            false
+            (catch FileNotFoundException _
+              true))))))
   
     
 (deftest test-MockDataObjectAO-addAVUMetadata
@@ -208,7 +216,7 @@
     (.addAVUMetadata (->MockDataObjectAO content-ref account)
                      path 
                      (AvuData. "a" "v" "u"))
-    (is (-> @content-ref (r/get-avus path) set (contains? ["a" "v" "u"])))))
+    (is (-> @content-ref (repo/get-avus path) set (contains? ["a" "v" "u"])))))
 
 
 (deftest test-MockDataObjectAO-findMetadataValuesForDataObject
@@ -249,8 +257,15 @@
                         (->MockDataObjectAO (atom init-content) account) 
                         "/zone/home/user1/file"))]
       (is (= FilePermissionEnum/OWN (.getFilePermissionEnum perm)))
-      (is (= "user1" (.getUserName perm))))))
-  
+      (is (= "user1" (.getUserName perm)))))
+  (testing "missing data object"
+    (let [ao (->MockDataObjectAO (atom init-content) account)]
+      (is (ss/try+
+            (.listPermissionsForDataObject ao "/missing")
+            false
+            (catch FileNotFoundException _
+              true))))))
+ 
   
 (deftest test-MockGroupAO-findUserGroupsForUser
   (let [groups (.findUserGroupsForUser (->MockGroupAO (atom init-content) 

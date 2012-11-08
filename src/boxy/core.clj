@@ -40,6 +40,17 @@
     nil    FilePermissionEnum/NONE))
 
 
+(defn- directory?
+  [repo path]
+   (let [type (repo/get-type repo (file/rm-last-slash path))]
+     (or (= :normal-dir type) (= :linked-dir type))))
+  
+  
+(defn- file?
+  [repo path]
+  (= :file (repo/get-type repo path)))
+
+
 (defrecord MockFile [repo-ref account path]
   ^{:doc
     "This is description of a file or directory in a mutable boxy repository.
@@ -88,11 +99,10 @@
                                       nil))))
         
   (isDirectory [_]
-    (let [type (repo/get-type @repo-ref (file/rm-last-slash path))]
-      (or (= :normal-dir type) (= :linked-dir type))))
+    (directory? @repo-ref path))
   
   (isFile [_]
-    (= :file (repo/get-type @repo-ref path)))
+    (file? @repo-ref path))
   
   (mkdirs [_]
     "TODO: implement this method"
@@ -206,6 +216,7 @@
   
   (listPermissionsForCollection [_ path]
     "FIXME:  This doesn't assign a correct zone to the return value."
+    (when-not (directory? @repo-ref path) (throw (FileNotFoundException. "")))
     (letfn [(mk-perm [acl-entry] 
                      (let [user   (key acl-entry)]
                        (UserFilePermission. user 
@@ -256,6 +267,7 @@
  
   (listPermissionsForDataObject [_ path]
     "FIXME:  This doesn't assign a correct zone to the return value."
+    (when-not (file? @repo-ref path) (throw (FileNotFoundException. "")))
     (letfn [(mk-perm [acl-entry] 
                      (let [user   (key acl-entry)]
                        (UserFilePermission. user 
