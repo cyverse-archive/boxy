@@ -207,6 +207,13 @@
             (.listPermissionsForCollection ao "/missing")
             false
             (catch FileNotFoundException _
+              true)))))
+  (testing "fail if ends in /"
+      (let [ao (->MockCollectionAO (atom init-content) account)]
+      (is (ss/try+
+            (.listPermissionsForCollection ao "/zone/")
+            false
+            (catch FileNotFoundException _
               true))))))
   
     

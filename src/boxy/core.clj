@@ -216,6 +216,7 @@
   
   (listPermissionsForCollection [_ path]
     "FIXME:  This doesn't assign a correct zone to the return value."
+    (when (= \/ (last path)) (throw (FileNotFoundException. "")))
     (when-not (directory? @repo-ref path) (throw (FileNotFoundException. "")))
     (letfn [(mk-perm [acl-entry] 
                      (let [user   (key acl-entry)]
