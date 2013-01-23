@@ -1,7 +1,6 @@
 (ns boxy.core
-  "This namespace provides an implementation of the Jargon classes for 
-   interacting with a mock up of an iRODS repository.  The function 
-   mk-mock-proxy should normally be the entry point."
+  "This namespace provides an implementation of the Jargon classes for interacting with a mock up of 
+   an iRODS repository. The function mk-mock-proxy should normally be the entry point."
   (:require [clojure-commons.file-utils :as file]
             [boxy.jargon-if :as jargon]
             [boxy.repo :as repo])
@@ -172,22 +171,25 @@
                      (partial ->MockFileIOOperations repo-ref acnt)))
   
   
-(defrecord MockFileSystemAO [repo-ref account]
+(defrecord MockFileSystemAO [repo-ref account oom?]
   ^{:doc
-    "This is an iRODS file system accesser that is backed by mutable repository 
-     content.
+    "This is an iRODS file system accesser that is backed by mutable repository content.
 
      Parameters:
        repo-ref - An atom containing the content.
-       account - The IRODSAccount identifying the connected user."}
+       account - The IRODSAccount identifying the connected user.
+       oom? - Should the mock AO object pretend to be out of memory?"}
   IRODSFileSystemAO
   
   (getListInDir [_ file]
-    (if-not (.exists file)
-      (throw (FileNotFoundException. (str (.getAbsolutePath file) " not found")))
-      (map file/basename (repo/get-members @repo-ref (if (.isDirectory file)
-                                                       (.getAbsolutePath file)
-                                                       (.getParent file)))))))
+    (when oom? (throw (OutOfMemoryError.)))
+    (when-not (.exists file)
+      (throw (FileNotFoundException. (str (.getAbsolutePath file) " not found"))))
+    (map file/basename 
+         (repo/get-members @repo-ref 
+                           (if (.isDirectory file)
+                             (.getAbsolutePath file)
+                             (.getParent file))))))
 
 
 (defrecord MockEntryListAO [repo-ref account]
@@ -410,7 +412,7 @@
    Returns:
      It returns a MockProxy instance."
   [repo-ref]
-  (->MockAOFactory (partial ->MockFileSystemAO repo-ref)
+  (->MockAOFactory #(->MockFileSystemAO repo-ref % false)
                    (partial ->MockEntryListAO repo-ref)
                    (partial ->MockCollectionAO repo-ref)
                    (partial ->MockDataObjectAO repo-ref)

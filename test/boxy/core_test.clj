@@ -160,20 +160,24 @@
 
 (deftest test-MockFileSystemAO-getListDir
   (let [content (atom init-content)
-        ao      (->MockFileSystemAO content account)]
+        ao      (->MockFileSystemAO content account false)]
     (testing "testing directory"
-      (is (= ["home"] 
-             (.getListInDir ao (->MockFile content account "/zone")))))
+      (is (= ["home"] (.getListInDir ao (->MockFile content account "/zone")))))
     (testing "testing file"
       (is (= #{"file" "link"}
-             (set (.getListInDir ao 
-                    (->MockFile content account "/zone/home/user1/file"))))))
+             (set (.getListInDir ao (->MockFile content account "/zone/home/user1/file"))))))
     (testing "missing entry"
       (let [thrown? (try 
                       (.getListInDir ao (->MockFile content account "/missing"))
                       false
-                      (catch FileNotFoundException _
-                        true))]
+                      (catch FileNotFoundException _ true))]
+        (is thrown?)))
+    (testing "oom"
+      (let [ao-oom  (->MockFileSystemAO content account true)
+            thrown? (try 
+                      (.getListInDir ao-oom (->MockFile content account "/zone"))
+                      false
+                      (catch OutOfMemoryError _ true))]
         (is thrown?)))))
                         
 
