@@ -45,7 +45,7 @@
    "/zone/home/user2"       {:type :normal-dir
                              :acl  {"user2" :write}
                              :avus {}}
-   "/zone/home/user2/file1" {:type    :normal-dir
+   "/zone/home/user2/file1" {:type    :file
                              :acl     {"user2" :own}
                              :avus    {}
                              :content ""}
@@ -53,10 +53,28 @@
                              :acl     {"user2" :own "user1" :read}
                              :avus    {}
                              :content ""}
-   "/zone/home/user2/file3" {:type    :normal-dir
+   "/zone/home/user2/file3" {:type    :file
                              :acl     {"user2" :own "user1" :write}
                              :avus    {}
-                             :content ""}})
+                             :content ""}
+   "/zone/home/user2/dir1"  {:type :normal-dir
+                             :acl  {"user2" :own}
+                             :avus {}}
+   "/zone/home/user2/dir2"  {:type :normal-dir
+                             :acl  {"user2" :own}
+                             :avus {}}
+   "/zone/home/user2/dir3"  {:type :normal-dir
+                             :acl  {"user2" :own}
+                             :avus {}}
+   "/zone/home/user2/dir4"  {:type :normal-dir
+                             :acl  {"user2" :own}
+                             :avus {}}
+   "/zone/home/user2/dir5"  {:type :normal-dir
+                             :acl  {"user2" :own}
+                             :avus {}}
+   "/zone/home/user2/dir6"  {:type :normal-dir
+                             :acl  {"user2" :own}
+                             :avus {}}})
 
 
 (def ^{:private true} account 
@@ -180,6 +198,43 @@
                       (catch OutOfMemoryError _ true))]
         (is thrown?)))))
                         
+
+(deftest test-MockEntryListAO-listCollectionsUnderPath
+  (let [ao (->MockEntryListAO (atom init-content) account)]
+    (testing "list 1 normal collection"
+      (let [colls (.listCollectionsUnderPath ao "/zone" 0)
+            home  (first colls)]       
+        (is (= 1 (count colls)))
+        (is (= "/zone/home" (.getFormattedAbsolutePath home)))
+        (is (.isCollection home))
+        (is (= ObjStat$SpecColType/NORMAL (.getSpecColType home)))
+        (is (= 1 (.getCount home)))
+        (is (.isLastResult home))))
+    (testing "list 1 linked collection"
+      (let [colls (.listCollectionsUnderPath ao "/zone/home/user1" 0)
+            link  (first colls)]       
+        (is (= "/zone/home/user1/link" (.getFormattedAbsolutePath link)))
+        (is (.isCollection link))
+        (is (= ObjStat$SpecColType/LINKED_COLL (.getSpecColType link)))))
+    (testing "paging"
+      (let [page1 (.listCollectionsUnderPath ao "/zone/home/user2" 0)
+            page2 (.listCollectionsUnderPath ao "/zone/home/user2" 5)]
+        (is (= 5 (count page1)))
+        (is (= 1 (.getCount (first page1))))
+        (is (= 5 (.getCount (last page1))))
+        (is (not (.isLastResult (last page1))))
+        (is (= 1 (count page2)))
+        (is (= 1 (.getCount (last page2))))
+        (is (.isLastResult (last page2)))))))
+
+
+(deftest test-MockEntryListAO-listDataObjectsUnderPath
+  (let [files (.listDataObjectsUnderPath (->MockEntryListAO (atom init-content) account) 
+                                         "/zone/home/user1" 
+                                         0)]       
+    (is (= 1 (count files)))
+    (is (.isDataObject (first files)))))
+
 
 (deftest test-MockCollectionAO-getPermissionForCollection
   (let [ao (->MockCollectionAO (atom init-content) account)]

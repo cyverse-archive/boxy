@@ -26,7 +26,9 @@
                                          IRODSFile
                                          IRODSFileFactory
                                          IRODSFileOutputStream]
-           [org.irods.jargon.core.query MetaDataAndDomainData
+           [org.irods.jargon.core.query CollectionAndDataObjectListingEntry
+                                        CollectionAndDataObjectListingEntry$ObjectType
+                                        MetaDataAndDomainData
                                         MetaDataAndDomainData$MetadataDomain]))
 
 
@@ -192,15 +194,52 @@
                              (.getParent file))))))
 
 
+(defn- ->entry 
+  [repo entry-path page-idx last?]
+  (let [entry-type (repo/get-type repo entry-path)]
+    (doto (CollectionAndDataObjectListingEntry.)
+      (.setPathOrName entry-path)
+      (.setObjectType (if (= :file entry-type) 
+                        CollectionAndDataObjectListingEntry$ObjectType/DATA_OBJECT
+                        CollectionAndDataObjectListingEntry$ObjectType/COLLECTION))
+      (.setSpecColType (condp = entry-type
+                         :file       nil
+                         :linked-dir ObjStat$SpecColType/LINKED_COLL
+                         :normal-dir ObjStat$SpecColType/NORMAL))
+      (.setCount (+ 1 page-idx))
+      (.setLastResult last?))))
+
+
+(defn- ->member-entry-page
+  [repo parent-path filtered-types start-index]
+  (let [max-page-length 5
+        paths           (filter #(contains? filtered-types (repo/get-type repo %)) 
+                                (repo/get-members repo parent-path))
+        page-paths      (->> paths (drop start-index) (take max-page-length))
+        last-page?      (<= (count paths) (+ start-index max-page-length))
+        page-length     (count page-paths)]
+    (for [page-idx (range page-length)]
+      (->entry repo
+               (nth page-paths page-idx) 
+               page-idx 
+               (and (= page-length (inc page-idx)) last-page?)))))
+
+
 (defrecord MockEntryListAO [repo-ref account]
   ^{:doc
-    "This is an iRODS entry lister and searcher that is backed by a mutable 
-     repository content.
+    "This is an iRODS entry lister and searcher that is backed by a mutable repository content. This
+     version will page in groups of at most five.
 
      Parameters:
        repo-ref - An atom containing the content.
        account - The IRODSAccount identifying the connected user."}
-  CollectionAndDataObjectListAndSearchAO)
+  CollectionAndDataObjectListAndSearchAO
+  
+  (listCollectionsUnderPath [_ path start-index]
+    (->member-entry-page @repo-ref path #{:linked-dir :normal-dir} start-index))
+
+  (listDataObjectsUnderPath [_ path start-index]
+    (->member-entry-page @repo-ref path #{:file} start-index)))
   
 
 (defrecord MockCollectionAO [repo-ref account]
