@@ -231,9 +231,11 @@
 (deftest test-MockEntryListAO-listDataObjectsUnderPath
   (let [files (.listDataObjectsUnderPath (->MockEntryListAO (atom init-content) account) 
                                          "/zone/home/user1" 
-                                         0)]       
+                                         0)
+        file  (first files)]       
     (is (= 1 (count files)))
-    (is (.isDataObject (first files)))))
+    (is (.isDataObject file))
+    (is (= "/zone/home/user1/file" (.getFormattedAbsolutePath file)))))
 
 
 (deftest test-MockCollectionAO-getPermissionForCollection

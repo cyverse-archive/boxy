@@ -198,7 +198,10 @@
   [repo entry-path page-idx last?]
   (let [entry-type (repo/get-type repo entry-path)]
     (doto (CollectionAndDataObjectListingEntry.)
-      (.setPathOrName entry-path)
+      (.setParentPath (file/dirname entry-path))
+      (.setPathOrName (if (= :file entry-type)
+                        (file/basename entry-path)
+                        entry-path))
       (.setObjectType (if (= :file entry-type) 
                         CollectionAndDataObjectListingEntry$ObjectType/DATA_OBJECT
                         CollectionAndDataObjectListingEntry$ObjectType/COLLECTION))
