@@ -77,6 +77,10 @@
         (reset! repo-ref (repo/add-file @repo-ref path))
         true)))
   
+  (createNewFileCheckNoResourceFound [_]
+    "NOTE:  The check is not performed."
+    (.createNewFile _))
+  
   (exists [_]
     (repo/contains-entry? @repo-ref (file/rm-last-slash path)))
   
