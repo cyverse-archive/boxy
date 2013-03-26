@@ -87,6 +87,15 @@
                  "resource"))     
 
 
+(defn- same-acl?
+  [jargon-acl repo-acl]
+  (letfn [(same-perm? [jargon-perm repo-perm] (and (= (.getUserName jargon-perm) (first repo-perm))
+                                                   (= (.getFilePermissionEnum jargon-perm) 
+                                                      (second repo-perm))))]
+    (every? true? (map same-perm? jargon-acl repo-acl))))
+  
+                                                    
+
 (deftest test-MockFile-createNewFile
   (testing "file doesn't already exist"
     (let [content-ref (atom init-content)
@@ -199,26 +208,29 @@
         (is thrown?)))))
                         
 
-(deftest test-MockEntryListAO-listCollectionsUnderPath
+(deftest test-MockEntryListAO-listCollectionsUnderPathWithPermissions
   (let [ao (->MockEntryListAO (atom init-content) account)]
     (testing "list 1 normal collection"
-      (let [colls (.listCollectionsUnderPath ao "/zone" 0)
-            home  (first colls)]       
+      (let [colls (.listCollectionsUnderPathWithPermissions ao "/zone" 0)
+            home  (first colls)
+            perms (.getUserFilePermission home)]       
         (is (= 1 (count colls)))
         (is (= "/zone/home" (.getFormattedAbsolutePath home)))
         (is (.isCollection home))
         (is (= ObjStat$SpecColType/NORMAL (.getSpecColType home)))
+        (is (= 2 (count perms)))
+        (is (same-acl? perms [["user1" FilePermissionEnum/READ] ["user2" FilePermissionEnum/READ]])) 
         (is (= 1 (.getCount home)))
         (is (.isLastResult home))))
     (testing "list 1 linked collection"
-      (let [colls (.listCollectionsUnderPath ao "/zone/home/user1" 0)
+      (let [colls (.listCollectionsUnderPathWithPermissions ao "/zone/home/user1" 0)
             link  (first colls)]       
         (is (= "/zone/home/user1/link" (.getFormattedAbsolutePath link)))
         (is (.isCollection link))
         (is (= ObjStat$SpecColType/LINKED_COLL (.getSpecColType link)))))
     (testing "paging"
-      (let [page1 (.listCollectionsUnderPath ao "/zone/home/user2" 0)
-            page2 (.listCollectionsUnderPath ao "/zone/home/user2" 5)]
+      (let [page1 (.listCollectionsUnderPathWithPermissions ao "/zone/home/user2" 0)
+            page2 (.listCollectionsUnderPathWithPermissions ao "/zone/home/user2" 5)]
         (is (= 5 (count page1)))
         (is (= 1 (.getCount (first page1))))
         (is (= 5 (.getCount (last page1))))
@@ -228,10 +240,9 @@
         (is (.isLastResult (last page2)))))))
 
 
-(deftest test-MockEntryListAO-listDataObjectsUnderPath
-  (let [files (.listDataObjectsUnderPath (->MockEntryListAO (atom init-content) account) 
-                                         "/zone/home/user1" 
-                                         0)
+(deftest test-MockEntryListAO-listDataObjectsUnderPathWithPermissions
+  (let [ao    (->MockEntryListAO (atom init-content) account)
+        files (.listDataObjectsUnderPathWithPermissions ao "/zone/home/user1" 0)
         file  (first files)]       
     (is (= 1 (count files)))
     (is (.isDataObject file))

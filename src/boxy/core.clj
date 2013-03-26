@@ -41,6 +41,17 @@
     nil    FilePermissionEnum/NONE))
 
 
+(defn- get-acl
+  "FIXME:  This doesn't assign a correct zone to the return value."
+  [repo path]
+  (letfn [(mk-perm [[user perm]] (UserFilePermission. user 
+                                                      user
+                                                      (map-perm perm) 
+                                                      UserTypeEnum/RODS_UNKNOWN 
+                                                      "zone"))]
+    (map mk-perm (repo/get-acl repo path))))
+
+
 (defn- directory?
   [repo path]
    (let [type (repo/get-type repo (file/rm-last-slash path))]
@@ -213,6 +224,7 @@
                          :file       nil
                          :linked-dir ObjStat$SpecColType/LINKED_COLL
                          :normal-dir ObjStat$SpecColType/NORMAL))
+      (.setUserFilePermission (get-acl repo entry-path))
       (.setCount (+ 1 page-idx))
       (.setLastResult last?))))
 
@@ -243,9 +255,15 @@
   CollectionAndDataObjectListAndSearchAO
   
   (listCollectionsUnderPath [_ path start-index]
-    (->member-entry-page @repo-ref path #{:linked-dir :normal-dir} start-index))
+    (.listCollectionsUnderPathWithPermissions _ path start-index))
 
+  (listCollectionsUnderPathWithPermissions [_ path start-index]
+    (->member-entry-page @repo-ref path #{:linked-dir :normal-dir} start-index))
+  
   (listDataObjectsUnderPath [_ path start-index]
+    (.listDataObjectsUnderPathWithPermissions _ path start-index))
+  
+  (listDataObjectsUnderPathWithPermissions [_ path start-index]
     (->member-entry-page @repo-ref path #{:file} start-index)))
   
 
@@ -263,17 +281,9 @@
     (map-perm (repo/get-permission @repo-ref (file/rm-last-slash path) user zone)))
   
   (listPermissionsForCollection [_ path]
-    "FIXME:  This doesn't assign a correct zone to the return value."
     (when (= \/ (last path)) (throw (FileNotFoundException. "")))
     (when-not (directory? @repo-ref path) (throw (FileNotFoundException. "")))
-    (letfn [(mk-perm [acl-entry] 
-                     (let [user   (key acl-entry)]
-                       (UserFilePermission. user 
-                                            user
-                                            (map-perm (val acl-entry)) 
-                                            UserTypeEnum/RODS_UNKNOWN 
-                                            "zone")))]
-      (map mk-perm (repo/get-acl @repo-ref path)))))
+    (get-acl @repo-ref path)))
 
 
 (defrecord MockDataObjectAO [repo-ref account]
@@ -315,16 +325,8 @@
     (map-perm (repo/get-permission @repo-ref (file/rm-last-slash path) user zone)))
  
   (listPermissionsForDataObject [_ path]
-    "FIXME:  This doesn't assign a correct zone to the return value."
     (when-not (file? @repo-ref path) (throw (FileNotFoundException. "")))
-    (letfn [(mk-perm [acl-entry] 
-                     (let [user   (key acl-entry)]
-                       (UserFilePermission. user 
-                                            user
-                                            (map-perm (val acl-entry)) 
-                                            UserTypeEnum/RODS_UNKNOWN 
-                                            "zone")))]
-      (map mk-perm (repo/get-acl @repo-ref path))))
+    (get-acl @repo-ref path))
     
   (setAccessPermissionOwn [_ zone path user])
     #_"TODO: implement")
