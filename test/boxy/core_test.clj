@@ -208,6 +208,20 @@
         (is thrown?)))))
                         
 
+(deftest test-MockEntryListAO-getCollectionAndDataObjectListingEntryAtGivenAbsolutePath
+  (let [ao (->MockEntryListAO (atom init-content) account)]
+    (testing "get collection"
+      (let [path  "/zone"
+            entry (.getCollectionAndDataObjectListingEntryAtGivenAbsolutePath ao path)]
+        (is (.isCollection entry))
+        (is (= path (.getFormattedAbsolutePath entry)))))
+    (testing "get data object"
+      (let [path  "/zone/home/user1/file"
+            entry (.getCollectionAndDataObjectListingEntryAtGivenAbsolutePath ao path)]
+        (is (.isDataObject entry))
+        (is (= path (.getFormattedAbsolutePath entry)))))))
+  
+  
 (deftest test-MockEntryListAO-listCollectionsUnderPathWithPermissions
   (let [ao (->MockEntryListAO (atom init-content) account)]
     (testing "list 1 normal collection"

@@ -254,6 +254,9 @@
        account - The IRODSAccount identifying the connected user."}
   CollectionAndDataObjectListAndSearchAO
   
+  (getCollectionAndDataObjectListingEntryAtGivenAbsolutePath [_ path]
+    (->entry @repo-ref path 0 true))
+    
   (listCollectionsUnderPath [_ path start-index]
     (.listCollectionsUnderPathWithPermissions _ path start-index))
 
