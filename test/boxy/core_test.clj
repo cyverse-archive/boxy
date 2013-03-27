@@ -219,7 +219,13 @@
       (let [path  "/zone/home/user1/file"
             entry (.getCollectionAndDataObjectListingEntryAtGivenAbsolutePath ao path)]
         (is (.isDataObject entry))
-        (is (= path (.getFormattedAbsolutePath entry)))))))
+        (is (= path (.getFormattedAbsolutePath entry)))))
+    (testing "missing entry"
+      (let [thrown? (ss/try+
+                      (.getCollectionAndDataObjectListingEntryAtGivenAbsolutePath ao "/missing")
+                      false
+                      (catch Object _ true))]
+        (is thrown?)))))
   
   
 (deftest test-MockEntryListAO-listCollectionsUnderPathWithPermissions

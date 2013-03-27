@@ -255,6 +255,7 @@
   CollectionAndDataObjectListAndSearchAO
   
   (getCollectionAndDataObjectListingEntryAtGivenAbsolutePath [_ path]
+    (when-not (repo/contains-entry? @repo-ref path) (throw (FileNotFoundException. "")))
     (->entry @repo-ref path 0 true))
     
   (listCollectionsUnderPath [_ path start-index]
