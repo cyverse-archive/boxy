@@ -4,29 +4,46 @@
 
 
 (def ^{:private true} repo 
-  {:users                  #{"user"}
-   :groups                 {["group" "zone"] #{"user"}} 
-   "/zone"                 {:type :normal-dir
-                            :acl  {}
-                            :avus {}}
-   "/zone/home"            {:type :normal-dir
-                            :acl  {"group" :read}
-                            :avus {}}
-   "/zone/home/user"       {:type :normal-dir
-                            :acl  {"user" :write}
-                            :avus {}}
-   "/zone/home/user/empty" {:type    :file
-                            :acl     {}
-                            :avus    {}
-                            :content ""}
-   "/zone/home/user/file"  {:type    :file
-                            :acl     {"user" :own}
-                            :avus    {"has-unit" ["value" "unit"] 
-                                      "unitless" ["value" ""]}
-                            :content "content"}
-   "/zone/home/user/link"  {:type :linked-dir
-                            :acl  {}
-                            :avus {}}})
+  {:users                  #{["user" "zone"]}
+   :groups                 {["group" "zone"] #{["user" "zone"]}} 
+   "/zone"                 {:type        :normal-dir
+                            :creator     ["user" "zone"]
+                            :create-time 0
+                            :modify-time 0
+                            :acl         {}
+                            :avus        {}}
+   "/zone/home"            {:type        :normal-dir
+                            :creator     ["user" "zone"]
+                            :create-time 0
+                            :modify-time 0
+                            :acl         {["group" "zone"] :read}
+                            :avus        {}}
+   "/zone/home/user"       {:type        :normal-dir
+                            :creator     ["user" "zone"]
+                            :create-time 0
+                            :modify-time 0
+                            :acl         {["user" "zone"] :write}
+                            :avus        {}}
+   "/zone/home/user/empty" {:type        :file
+                            :creator     ["user" "zone"]
+                            :create-time 1
+                            :modify-time 2
+                            :acl         {}
+                            :avus        {}
+                            :content     ""}
+   "/zone/home/user/file"  {:type        :file
+                            :creator     ["user" "zone"]
+                            :create-time 3
+                            :modify-time 3
+                            :acl         {["user" "zone"] :own}
+                            :avus        {"has-unit" ["value" "unit"] "unitless" ["value" ""]}
+                            :content     "content"}
+   "/zone/home/user/link"  {:type        :linked-dir
+                            :creator     ["user" "zone"]
+                            :create-time 4
+                            :modify-time 4
+                            :acl         {}
+                            :avus        {}}})
 
 
 (deftest test-contains-entry?
@@ -36,7 +53,7 @@
 
 (deftest test-get-acl
   (is (empty? (get-acl repo "/zone")))
-  (is (= {"group" :read} (get-acl repo "/zone/home"))))
+  (is (= {["group" "zone"] :read} (get-acl repo "/zone/home"))))
 
   
 (deftest test-get-avus
@@ -47,9 +64,21 @@
   (is (empty? (get-avus repo "/missing"))))
 
 
+(deftest test-get-create-time
+   (is (= 0 (get-create-time repo "/zone"))))
+
+  
+(deftest test-get-creator
+   (is (= ["user" "zone"] (get-creator repo "/zone"))))
+
+
 (deftest test-get-members
   (is (= (get-members repo "/zone") ["/zone/home"])))
   
+  
+(deftest test-get-modify-time
+   (is (= 0 (get-modify-time repo "/zone"))))
+
   
 (deftest test-get-permission
   (is (nil? (get-permission repo "/zone" "user" "zone")))
@@ -66,13 +95,13 @@
 
   
 (deftest test-get-user-groups
-  (is (= '(["group" "zone"]) (get-user-groups repo "user")))
-  (is (empty? (get-user-groups repo "unknown"))))
+  (is (= '(["group" "zone"]) (get-user-groups repo "user" "zone")))
+  (is (empty? (get-user-groups repo "unknown" "unknown"))))
 
 
 (deftest test-user-exists?
-  (is (user-exists? repo "user"))
-  (is (not (user-exists? repo "unknown"))))
+  (is (user-exists? repo "user" "zone"))
+  (is (not (user-exists? repo "unknown" "unknown"))))
 
 
 (deftest test-add-avu

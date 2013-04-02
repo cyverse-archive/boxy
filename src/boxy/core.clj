@@ -4,7 +4,8 @@
   (:require [clojure-commons.file-utils :as file]
             [boxy.jargon-if :as jargon]
             [boxy.repo :as repo])
-  (:import [java.util List]
+  (:import [java.util Date
+                      List]
            [org.irods.jargon.core.exception DataNotFoundException
                                             FileNotFoundException]
            [org.irods.jargon.core.protovalues FilePermissionEnum
@@ -42,13 +43,12 @@
 
 
 (defn- get-acl
-  "FIXME:  This doesn't assign a correct zone to the return value."
   [repo path]
-  (letfn [(mk-perm [[user perm]] (UserFilePermission. user 
-                                                      user
-                                                      (map-perm perm) 
-                                                      UserTypeEnum/RODS_UNKNOWN 
-                                                      "zone"))]
+  (letfn [(mk-perm [[[user zone] perm]] (UserFilePermission. user 
+                                                             "dbid"
+                                                             (map-perm perm) 
+                                                             UserTypeEnum/RODS_UNKNOWN 
+                                                             zone))]
     (map mk-perm (repo/get-acl repo path))))
 
 
@@ -211,7 +211,8 @@
 
 (defn- ->entry 
   [repo entry-path page-idx last?]
-  (let [entry-type (repo/get-type repo entry-path)]
+  (let [entry-type (repo/get-type repo entry-path)
+        creator    (repo/get-creator repo entry-path)]
     (doto (CollectionAndDataObjectListingEntry.)
       (.setParentPath (file/dirname entry-path))
       (.setPathOrName (if (= :file entry-type)
@@ -224,6 +225,10 @@
                          :file       nil
                          :linked-dir ObjStat$SpecColType/LINKED_COLL
                          :normal-dir ObjStat$SpecColType/NORMAL))
+      (.setOwnerName (first creator))
+      (.setOwnerZone (second creator))
+      (.setCreatedAt (Date. (repo/get-create-time repo entry-path)))
+      (.setModifiedAt (Date. (repo/get-modify-time repo entry-path)))
       (.setUserFilePermission (get-acl repo entry-path))
       (.setCount (+ 1 page-idx))
       (.setLastResult last?))))
@@ -344,19 +349,16 @@
        repo-ref - An atom containing the content.
        account - The IRODSAccount identifying the connected user.
 
-     NOTE:  This has been implemented only enough to support current testing."}  
+     NOTE: This has been implemented only enough to support current testing."}  
   UserGroupAO
   
   (findUserGroupsForUser [_ user]
-    "NOTE:  I don't know what a group Id is, so I'm setting it to name:zone."
-    (let [mk-UserGroup (fn [group]
-                         (let [name (first group)
-                               zone (second group)]
-                           (doto (UserGroup.)
-                             (.setUserGroupId (str name ":" zone))
-                             (.setUserGroupName name)
-                             (.setZone zone))))]
-      (map mk-UserGroup (repo/get-user-groups @repo-ref user)))))
+    "NOTE: userGroupId has not been set."
+    (letfn [(mk-UserGroup [[group zone]] 
+                          (doto (UserGroup.)
+                            (.setUserGroupName group)
+                            (.setZone zone)))]
+      (map mk-UserGroup (repo/get-user-groups @repo-ref user (.getZone account))))))
 
   
 (defrecord MockUserAO [repo-ref account]
@@ -371,12 +373,13 @@
   UserAO
   
   (findByName [_ name]
-    "NOTE:  This function does not set the comment, createTime, Id, Info, 
-       modifyTime, userDN, userType or zone fields in the returned User object."
-    (if-not (repo/user-exists? @repo-ref name)
+    "NOTE: This function does not set the comment, createTime, Id, Info, modifyTime, userDN or 
+           userType fields in the returned User object."
+    (if-not (repo/user-exists? @repo-ref name (.getZone account))
       (throw (DataNotFoundException. "unknown user"))
       (doto (User.)
-        (.setName name)))))
+        (.setName name)
+        (.setZone (.getZone account))))))
 
 
 (defrecord MockQuotaAO [repo-ref account]

@@ -24,57 +24,103 @@
 
 
 (def ^{:private true} init-content 
-  {:users                   #{"user1" "user2"}
-   :groups                  {["group" "zone"] #{"user1" "user2"}}
-   "/zone"                  {:type :normal-dir
-                             :acl  {}
-                             :avus {}}
-   "/zone/home"             {:type :normal-dir
-                             :acl  {"user1" :read "user2" :read}
-                             :avus {}}
-   "/zone/home/user1"       {:type :normal-dir
-                             :acl  {"user1" :write}
-                             :avus {}}
-   "/zone/home/user1/file"  {:type    :file
-                             :acl     {"user1" :own}
-                             :avus    {"attribute" ["value" "unit"]}
-                             :content ""}
-   "/zone/home/user1/link"  {:type :linked-dir
-                             :acl  {"user1" :own}
-                             :avus {}}
-   "/zone/home/user2"       {:type :normal-dir
-                             :acl  {"user2" :write}
-                             :avus {}}
-   "/zone/home/user2/file1" {:type    :file
-                             :acl     {"user2" :own}
-                             :avus    {}
-                             :content ""}
-   "/zone/home/user2/file2" {:type    :file
-                             :acl     {"user2" :own "user1" :read}
-                             :avus    {}
-                             :content ""}
-   "/zone/home/user2/file3" {:type    :file
-                             :acl     {"user2" :own "user1" :write}
-                             :avus    {}
-                             :content ""}
-   "/zone/home/user2/dir1"  {:type :normal-dir
-                             :acl  {"user2" :own}
-                             :avus {}}
-   "/zone/home/user2/dir2"  {:type :normal-dir
-                             :acl  {"user2" :own}
-                             :avus {}}
-   "/zone/home/user2/dir3"  {:type :normal-dir
-                             :acl  {"user2" :own}
-                             :avus {}}
-   "/zone/home/user2/dir4"  {:type :normal-dir
-                             :acl  {"user2" :own}
-                             :avus {}}
-   "/zone/home/user2/dir5"  {:type :normal-dir
-                             :acl  {"user2" :own}
-                             :avus {}}
-   "/zone/home/user2/dir6"  {:type :normal-dir
-                             :acl  {"user2" :own}
-                             :avus {}}})
+  {:users                   #{["user1" "zone"] ["user2" "zone"]}
+   :groups                  {["group" "zone"] #{["user1" "zone"] ["user2" "zone"]}}
+   "/zone"                  {:type        :normal-dir
+                             :creator     ["user1" "zone"]
+                             :create-time 0
+                             :modify-time 0
+                             :acl         {}
+                             :avus        {}}
+   "/zone/home"             {:type        :normal-dir
+                             :creator     ["user1" "zone"]
+                             :create-time 0
+                             :modify-time 0
+                             :acl         {["user1" "zone"] :read 
+                                           ["user2" "zone"] :read}
+                             :avus        {}}
+   "/zone/home/user1"       {:type        :normal-dir
+                             :creator     ["user1" "zone"]
+                             :create-time 0
+                             :modify-time 0
+                             :acl         {["user1" "zone"] :write}
+                             :avus        {}}
+   "/zone/home/user1/file"  {:type        :file
+                             :create-time 1
+                             :modify-time 2
+                             :acl         {["user1" "zone"] :own}
+                             :avus        {"attribute" ["value" "unit"]}
+                             :content     ""}
+   "/zone/home/user1/link"  {:type        :linked-dir
+                             :create-time 3
+                             :modify-time 3
+                             :acl         {["user1" "zone"] :own}
+                             :avus        {}}
+   "/zone/home/user2"       {:type        :normal-dir
+                             :creator     ["user1" "zone"]
+                             :create-time 4
+                             :modify-time 4
+                             :acl         {["user2" "zone"] :write}
+                             :avus        {}}
+   "/zone/home/user2/file1" {:type        :file
+                             :creator     ["user2" "zone"]
+                             :create-time 5
+                             :modify-time 6
+                             :acl         {["user2" "zone"] :own}
+                             :avus        {}
+                             :content     ""}
+   "/zone/home/user2/file2" {:type        :file
+                             :creator     ["user2" "zone"]
+                             :create-time 7
+                             :modify-time 8
+                             :acl         {["user2" "zone"] :own 
+                                           ["user1" "zone"] :read}
+                             :avus        {}
+                             :content     ""}
+   "/zone/home/user2/file3" {:type        :file
+                             :creator     ["user2" "zone"]
+                             :create-time 9
+                             :modify-time 10
+                             :acl         {["user2" "zone"] :own 
+                                           ["user1" "zone"] :write}
+                             :avus        {}
+                             :content     ""}
+   "/zone/home/user2/dir1"  {:type        :normal-dir
+                             :creator     ["user2" "zone"]
+                             :create-time 11
+                             :modify-time 11
+                             :acl         {["user2" "zone"] :own}
+                             :avus        {}}
+   "/zone/home/user2/dir2"  {:type        :normal-dir
+                             :creator     ["user2" "zone"]
+                             :create-time 11
+                             :modify-time 11
+                             :acl         {["user2" "zone"] :own}
+                             :avus        {}}
+   "/zone/home/user2/dir3"  {:type        :normal-dir
+                             :creator     ["user2" "zone"]
+                             :create-time 11
+                             :modify-time 11
+                             :acl         {["user2" "zone"] :own}
+                             :avus        {}}
+   "/zone/home/user2/dir4"  {:type        :normal-dir
+                             :creator     ["user2" "zone"]
+                             :create-time 11
+                             :modify-time 11
+                             :acl         {["user2" "zone"] :own}
+                             :avus        {}}
+   "/zone/home/user2/dir5"  {:type        :normal-dir
+                             :creator     ["user2" "zone"]
+                             :create-time 11
+                             :modify-time 11
+                             :acl         {["user2" "zone"] :own}
+                             :avus        {}}
+   "/zone/home/user2/dir6"  {:type        :normal-dir
+                             :creator     ["user2" "zone"]
+                             :create-time 11
+                             :modify-time 11
+                             :acl         {["user2" "zone"] :own}
+                             :avus        {}}})
 
 
 (def ^{:private true} account 
@@ -89,13 +135,14 @@
 
 (defn- same-acl?
   [jargon-acl repo-acl]
-  (letfn [(same-perm? [jargon-perm repo-perm] (and (= (.getUserName jargon-perm) (first repo-perm))
-                                                   (= (.getFilePermissionEnum jargon-perm) 
-                                                      (second repo-perm))))]
-    (every? true? (map same-perm? jargon-acl repo-acl))))
-  
-                                                    
+  (let [conv-perm  (fn [jargon-perm] [(.getUserName jargon-perm)
+                                      (.getUserZone jargon-perm)
+                                      (.getFilePermissionEnum jargon-perm)])
+        jargon-set (set (map conv-perm jargon-acl))
+        repo-set   (set repo-acl)]
+    (= jargon-set repo-set)))
 
+                                                    
 (deftest test-MockFile-createNewFile
   (testing "file doesn't already exist"
     (let [content-ref (atom init-content)
@@ -214,12 +261,15 @@
       (let [path  "/zone"
             entry (.getCollectionAndDataObjectListingEntryAtGivenAbsolutePath ao path)]
         (is (.isCollection entry))
-        (is (= path (.getFormattedAbsolutePath entry)))))
+        (is (= path (.getFormattedAbsolutePath entry)))
+        (is (= "user1" (.getOwnerName entry)))
+        (is (= "zone" (.getOwnerZone entry)))
+        (is (= 0 (.getTime (.getCreatedAt entry))))
+        (is (= 0 (.getTime (.getModifiedAt entry))))))
     (testing "get data object"
       (let [path  "/zone/home/user1/file"
             entry (.getCollectionAndDataObjectListingEntryAtGivenAbsolutePath ao path)]
-        (is (.isDataObject entry))
-        (is (= path (.getFormattedAbsolutePath entry)))))
+        (is (.isDataObject entry))))
     (testing "missing entry"
       (let [thrown? (ss/try+
                       (.getCollectionAndDataObjectListingEntryAtGivenAbsolutePath ao "/missing")
@@ -239,7 +289,8 @@
         (is (.isCollection home))
         (is (= ObjStat$SpecColType/NORMAL (.getSpecColType home)))
         (is (= 2 (count perms)))
-        (is (same-acl? perms [["user1" FilePermissionEnum/READ] ["user2" FilePermissionEnum/READ]])) 
+        (is (same-acl? perms [["user1" "zone" FilePermissionEnum/READ] 
+                              ["user2" "zone" FilePermissionEnum/READ]])) 
         (is (= 1 (.getCount home)))
         (is (.isLastResult home))))
     (testing "list 1 linked collection"
@@ -379,8 +430,9 @@
 (deftest test-MockUserAO-findByName
   (let [ao (->MockUserAO (atom init-content) account)]
     (testing "known user"
-      (is (= "user1" 
-             (.. ao (findByName "user1") getName))))
+      (let [user (.findByName ao "user1")]
+        (is (= "user1" (.getName user)))
+        (is (= "zone" (.getZone user)))))
     (testing "unknown user"
       (let [thrown? (try
                       (.findByName ao "unknown")
