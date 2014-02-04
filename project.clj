@@ -1,4 +1,4 @@
-(defproject org.iplantc/boxy "0.1.2-SNAPSHOT"
+(defproject org.iplantc/boxy "0.1.2"
   :description  "a mock of an iRODS repository to be used with clj-jargon"
   :license {:name "BSD"
             :url "http://iplantcollaborative.org/sites/default/files/iPLANT-LICENSE.txt"}
